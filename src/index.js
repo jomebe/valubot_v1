@@ -58,6 +58,21 @@ app.get('/', (req, res) => {
   });
 });
 
+// keep-alive 엔드포인트 추가
+app.get('/keep-alive', (req, res) => {
+  res.json({ status: 'alive', timestamp: new Date().toISOString() });
+});
+
+// 10분마다 자동으로 keep-alive 요청 보내기
+setInterval(async () => {
+  try {
+    const response = await axios.get(`${process.env.RENDER_EXTERNAL_URL || 'http://localhost:' + PORT}/keep-alive`);
+    console.log('Keep-alive ping 성공:', response.data);
+  } catch (error) {
+    console.error('Keep-alive ping 실패:', error);
+  }
+}, 10 * 60 * 1000); // 10분
+
 // 디스코드 클라이언트 생성
 const client = new Client({
   intents: [
