@@ -46,40 +46,17 @@ console.log('env 파일 경로:', join(__dirname, '../.env'));
 
 // Express 서버 설정
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 10000;  // PORT를 10000으로 변경
 
 // 기본 라우트
 app.get('/', (req, res) => {
-  res.json({
-    status: 'online',
-    uptime: process.uptime(),
-    lastPing: new Date().toISOString()
-  });
-});
-
-// keep-alive 엔드포인트
-app.get('/keep-alive', (req, res) => {
-  res.json({ status: 'alive', timestamp: new Date().toISOString() });
+  res.send('Valubot is running!');  // 단순한 응답으로 변경
 });
 
 // 서버 시작
-app.listen(PORT, '0.0.0.0', (err) => {
-  if (err) {
-    console.error('서버 시작 실패:', err);
-    return;
-  }
+app.listen(PORT, () => {
   console.log(`서버가 포트 ${PORT}에서 실행 중입니다`);
 });
-
-// 10분마다 자동으로 keep-alive 요청
-setInterval(async () => {
-  try {
-    const response = await axios.get(`${process.env.RENDER_EXTERNAL_URL}/keep-alive`);
-    console.log('Keep-alive ping 성공:', response.data);
-  } catch (error) {
-    console.error('Keep-alive ping 실패:', error);
-  }
-}, 10 * 60 * 1000); // 10분
 
 // 디스코드 클라이언트 생성
 const client = new Client({
