@@ -2,6 +2,8 @@ import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { Client, GatewayIntentBits } from 'discord.js';
+import express from 'express';
+import axios from 'axios';
 import { helpCommand } from './commands/help.js';
 import { registerCommand } from './commands/register.js';
 import { randomMapCommand } from './commands/randomMap.js';
@@ -41,6 +43,43 @@ console.log('환경 변수 로드 상태:');
 console.log('Token loaded:', process.env.DISCORD_TOKEN ? '토큰이 있습니다' : '토큰이 없습니다');
 console.log('현재 작업 디렉토리:', process.cwd());
 console.log('env 파일 경로:', join(__dirname, '../.env'));
+
+// Express 서버 설정
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+// 기본 라우트
+app.get('/', (req, res) => {
+  res.json({
+    status: 'online',
+    uptime: process.uptime(),
+    lastPing: new Date().toISOString()
+  });
+});
+
+// keep-alive 엔드포인트
+app.get('/keep-alive', (req, res) => {
+  res.json({ status: 'alive', timestamp: new Date().toISOString() });
+});
+
+// 서버 시작
+app.listen(PORT, '0.0.0.0', (err) => {
+  if (err) {
+    console.error('서버 시작 실패:', err);
+    return;
+  }
+  console.log(`서버가 포트 ${PORT}에서 실행 중입니다`);
+});
+
+// 10분마다 자동으로 keep-alive 요청
+setInterval(async () => {
+  try {
+    const response = await axios.get(`${process.env.RENDER_EXTERNAL_URL}/keep-alive`);
+    console.log('Keep-alive ping 성공:', response.data);
+  } catch (error) {
+    console.error('Keep-alive ping 실패:', error);
+  }
+}, 10 * 60 * 1000); // 10분
 
 // 디스코드 클라이언트 생성
 const client = new Client({
@@ -174,5 +213,7 @@ client.once('ready', async () => {
   }
 });
 
-// 봇 로그인
-client.login(process.env.DISCORD_TOKEN); 
+// Discord 봇 로그인
+client.login(process.env.DISCORD_TOKEN).catch(err => {
+  console.error('Discord 봇 로그인 실패:', err);
+}); 

@@ -772,7 +772,7 @@ async function createComparisonImage(player1, player2, stats1, stats2, player1Da
 }
 
 export const compareCommand = {
-  name: ['ㅂ비교'],
+  name: ['ㅂ비교', 'ㅂㅂㄱ'],
   execute: async (message, args) => {
     try {
       let player1, player2;
