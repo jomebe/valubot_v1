@@ -281,8 +281,8 @@ export const queueCommand = {
       const limit = parseInt(args[1]);
 
       // 인원수 체크 (2~10명)
-      if (!args[1] || isNaN(limit) || limit < 2 || limit > 10) {
-        return message.reply('사용법: ㅂ선착 [인원수] [제목] [유저멘션여부]\n예시: ㅂ선착 10 발로란트내전 O\n(인원수는 2~10명까지 가능합니다)');
+      if (!args[1] || isNaN(limit) || limit < 2 || limit > 101) {
+        return message.reply('사용법: ㅂ선착 [인원수] [제목] [유저멘션여부]\n예시: ㅂ선착 10 발로란트내전 O\n(인원수는 2~101명까지 가능합니다)');
       }
 
       // 마지막 인자가 멘션 옵션인지 확인
