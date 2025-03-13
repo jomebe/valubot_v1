@@ -384,7 +384,7 @@ async function startQueue(message, limit, title, isMentionEnabled, roleId = null
       color: 0x0099ff,
       title: '🎮 ' + title,
       description: limit >= 2 && limit % 2 === 0 ? 
-        `${limit}인 발로란트 내전\n현재 인원: 0/${limit}\n\n참가하려면 ✅ 반응을 눌러주세요!` :
+        `현재 인원: 0/${limit}\n\n참가하려면 ✅ 반응을 눌러주세요!` :
         `현재 인원: 0/${limit}\n\n참가하려면 ✅ 반응을 눌러주세요!`,
       footer: {
         text: '퇴장하려면 ❌ 반응을 눌러주세요.'
@@ -713,7 +713,7 @@ function updateQueueEmbed(queue) {
     color: 0x0099ff,
     title: queue.message.embeds[0].title,
     description: queue.limit >= 2 && queue.limit % 2 === 0 ? 
-      `${queue.limit}인 발로란트 내전\n현재 인원: ${queue.participants.length}/${queue.limit}\n\n참가자:\n${participantsList || '아직 참가자가 없습니다.'}` :
+      `현재 인원: ${queue.participants.length}/${queue.limit}\n\n참가자:\n${participantsList || '아직 참가자가 없습니다.'}` :
       `현재 인원: ${queue.participants.length}/${queue.limit}\n\n참가자:\n${participantsList || '아직 참가자가 없습니다.'}`,
     footer: {
       text: '✅ 반응을 눌러 참가하거나 ❌ 반응을 눌러 나갈 수 있습니다.'
