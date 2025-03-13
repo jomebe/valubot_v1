@@ -360,6 +360,46 @@ async function createComparisonImage(player1, player2, stats1, stats2, player1Da
     if (agent2Name && agentIcons && agentIcons[agent2Name]) {
       agent2Img = await loadImage(agentIcons[agent2Name]).catch(() => defaultAgentImg);
     }
+
+    // 에이전트 이미지 로드 및 그리기
+    const iconSize = 120;  // 아이콘 크기 증가
+    const margin = 50;     // 여백 조정
+    const yPos = 20;       // y 위치 조정
+
+    // 플레이어 1 아이콘
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(margin + iconSize/2, yPos + iconSize/2, iconSize/2, 0, Math.PI * 2);
+    ctx.clip();
+    if (agent1Img) {
+      ctx.drawImage(agent1Img, margin, yPos, iconSize, iconSize);
+    }
+    ctx.restore();
+
+    // 플레이어 2 아이콘
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(width - margin - iconSize/2, yPos + iconSize/2, iconSize/2, 0, Math.PI * 2);
+    ctx.clip();
+    if (agent2Img) {
+      ctx.drawImage(agent2Img, width - margin - iconSize, yPos, iconSize, iconSize);
+    }
+    ctx.restore();
+
+    // 아이콘 테두리 추가
+    ctx.strokeStyle = '#FF4654';
+    ctx.lineWidth = 3;
+    
+    // 플레이어 1 테두리
+    ctx.beginPath();
+    ctx.arc(margin + iconSize/2, yPos + iconSize/2, iconSize/2, 0, Math.PI * 2);
+    ctx.stroke();
+    
+    // 플레이어 2 테두리
+    ctx.beginPath();
+    ctx.arc(width - margin - iconSize/2, yPos + iconSize/2, iconSize/2, 0, Math.PI * 2);
+    ctx.stroke();
+
   } catch (error) {
     console.error('이미지 로딩 실패:', error);
   }
