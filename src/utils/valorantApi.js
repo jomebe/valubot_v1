@@ -16,25 +16,54 @@ const CACHE_DURATION = 5 * 60 * 1000;
 export const valorantApi = {
   // 계정 정보 조회
   async getAccount(name, tag) {
-    const cacheKey = `${name}#${tag}`;
-    const cached = cache.accounts.get(cacheKey);
-    
-    if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
-      return cached.data;
+    try {
+      const cacheKey = `${name}#${tag}`;
+      const cached = cache.accounts.get(cacheKey);
+      
+      if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
+        return cached.data;
+      }
+
+      const response = await axios.get(
+        `https://api.henrikdev.xyz/valorant/v1/account/${encodeURIComponent(name)}/${encodeURIComponent(tag)}`,
+        { 
+          headers: { 
+            'Authorization': process.env.VALORANT_API_KEY 
+          },
+          validateStatus: status => status < 500 // 404도 정상적인 응답으로 처리
+        }
+      );
+
+      // API 에러 응답 처리
+      if (response.status === 404) {
+        throw new Error(`플레이어를 찾을 수 없습니다: ${name}#${tag}`);
+      }
+      
+      if (response.status === 429) {
+        throw new Error('API 요청 한도를 초과했습니다. 잠시 후 다시 시도해주세요.');
+      }
+
+      if (!response.data.data) {
+        throw new Error(`API 응답 오류: ${JSON.stringify(response.data)}`);
+      }
+
+      const data = response.data.data;
+      cache.accounts.set(cacheKey, {
+        data,
+        timestamp: Date.now()
+      });
+
+      return data;
+    } catch (error) {
+      if (error.response?.status === 404) {
+        throw new Error(`플레이어를 찾을 수 없습니다: ${name}#${tag}`);
+      }
+      if (error.response?.status === 429) {
+        throw new Error('API 요청 한도를 초과했습니다. 잠시 후 다시 시도해주세요.');
+      }
+      console.error('계정 정보 조회 실패:', error);
+      throw new Error('계정 정보를 가져오는데 실패했습니다.');
     }
-
-    const response = await axios.get(
-      `https://api.henrikdev.xyz/valorant/v1/account/${encodeURIComponent(name)}/${encodeURIComponent(tag)}`,
-      { headers: { 'Authorization': process.env.VALORANT_API_KEY } }
-    );
-
-    const data = response.data.data;
-    cache.accounts.set(cacheKey, {
-      data,
-      timestamp: Date.now()
-    });
-
-    return data;
   },
 
   // MMR 정보 조회

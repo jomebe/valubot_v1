@@ -1,8 +1,15 @@
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../config/firebase.js';
 import { valorantApi } from '../utils/valorantApi.js';
+import { createCanvas, loadImage, registerFont } from 'canvas';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { AttachmentBuilder } from 'discord.js';
-import axios from 'axios';
+import fs from 'fs';
+
+// __dirname 설정 (ES 모듈에서 필요)
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // 더 예쁜 한글 폰트 사용 (기본 시스템 폰트 포함)
 const KOREAN_FONTS = '"Pretendard", "Noto Sans KR", "넥슨 Lv.2 고딕", "에스코어 드림", "Gmarket Sans", "IBM Plex Sans KR", Arial, sans-serif';
@@ -764,9 +771,8 @@ async function createComparisonImage(player1, player2, stats1, stats2, player1Da
   return canvas.toBuffer();
 }
 
-// 비교 결과를 임베드로만 표시하도록 수정
 export const compareCommand = {
-  name: ['ㅂ비교'],
+  name: ['ㅂ비교', 'ㅂㅂㄱ'],
   execute: async (message, args) => {
     try {
       let player1, player2;
@@ -961,7 +967,10 @@ export const compareCommand = {
           footer: {
             text: '🟢 더 좋음 | 🔴 더 낮음 | ⚪ 동일'
           },
-          timestamp: new Date()
+          timestamp: new Date(),
+          image: {
+            url: 'attachment://comparison.png'
+          }
         };
 
         // 맵별 통계가 있으면 필드 추가
@@ -984,10 +993,11 @@ export const compareCommand = {
           field.value && field.value.trim() !== ''
         );
 
-        // 이미지 첨부 없이 임베드만 전송
+        // 메시지 전송
         await loadingMsg.edit({
           content: null,
-          embeds: [embed]
+          embeds: [embed],
+          files: [attachment]
         });
 
       } catch (error) {
