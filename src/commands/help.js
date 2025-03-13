@@ -6,7 +6,7 @@ export const helpCommand = {
   execute: async (message, args) => {
     const embed = {
       color: 0xFF4654,
-      title: '🤖 발로봇 도움말',
+      title: '🤖 발루봇 도움말',
       description: '사용 가능한 명령어 목록입니다.',
       fields: [
         {

@@ -46,16 +46,16 @@ console.log('env 파일 경로:', join(__dirname, '../.env'));
 
 // Express 서버 설정
 const app = express();
-const PORT = process.env.PORT || 10000;  // PORT를 10000으로 변경
+const PORT = process.env.PORT || 10000;
 
-// 기본 라우트
+// 상태 체크 엔드포인트 추가
 app.get('/', (req, res) => {
-  res.send('Valubot is running!');  // 단순한 응답으로 변경
-});
-
-// 서버 시작
-app.listen(PORT, () => {
-  console.log(`서버가 포트 ${PORT}에서 실행 중입니다`);
+  res.send({
+    status: 'online',
+    timestamp: new Date().toISOString(),
+    botName: client.user?.tag || 'Valubot',
+    guilds: client.guilds.cache.size
+  });
 });
 
 // 디스코드 클라이언트 생성
@@ -188,6 +188,11 @@ client.once('ready', async () => {
       guildSettings.set(guild.id, { ...DEFAULT_GUILD_SETTINGS });
     }
   }
+
+  // Express 서버 시작
+  app.listen(PORT, () => {
+    console.log(`서버가 포트 ${PORT}에서 실행 중입니다`);
+  });
 });
 
 // Discord 봇 로그인
