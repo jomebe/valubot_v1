@@ -127,85 +127,67 @@ async function getPlayerData(player) {
 }
 
 // MMR 데이터에서 승률 통계 가져오기
-function calculateStats(matches, playerName, playerTag, providedMostPlayedAgent, mmrData) {
-  // 기본 통계 초기화
-  let stats = {
+function calculateStats(matches, playerName, playerTag) {
+  const stats = {
     kills: 0,
     deaths: 0,
     assists: 0,
+    score: 0,
+    damage: 0,
     headshots: 0,
     bodyshots: 0,
     legshots: 0,
     wins: 0,
     games: 0,
-    damage: 0,
-    score: 0,
-    firstBloods: 0,
-    plants: 0,
-    defuses: 0,
-    clutches: 0,
-    mostKillsInMatch: 0,
-    highestScore: 0,
-    mostPlayedAgent: providedMostPlayedAgent || "Unknown"
+    agents: {} // 에이전트 사용 횟수 추적
   };
-  
-  // MMR 데이터에서 승률 정보 가져오기
-  if (mmrData && mmrData.by_season) {
-    // 기존 MMR 데이터 처리 코드는 제거
-    // 매치 데이터로만 승률을 계산하도록 수정
-  }
-  
-  // 매치 데이터 처리
+
   let validGames = 0;
-  let wins = 0;  // 승리 수를 별도로 추적
+  let wins = 0;
 
-  if (matches && Array.isArray(matches)) {
-    matches.forEach(match => {
-      try {
-        if (!match.players || !match.players.all_players) return;
-        
-        const player = match.players.all_players.find(p => 
-          p.name?.toLowerCase() === playerName?.toLowerCase() && 
-          p.tag?.toLowerCase() === playerTag?.toLowerCase()
-        );
-        
-        if (!player || !player.stats) return;
-        
-        validGames++;
+  matches.forEach(match => {
+    // 플레이어 데이터 찾기
+    const playerData = match.players.all_players?.find(
+      p => p.name?.toLowerCase() === playerName.toLowerCase() && 
+           p.tag?.toLowerCase() === playerTag.toLowerCase()
+    );
 
-        // 킬/데스/어시스트 등 기본 스탯
-        stats.kills += player.stats.kills || 0;
-        stats.deaths += player.stats.deaths || 0;
-        stats.assists += player.stats.assists || 0;
-        stats.damage += player.damage_made || 0;
-        stats.score += player.stats.score || 0;
-        
-        // 헤드샷/바디샷/레그샷
-        stats.headshots += player.stats.headshots || 0;
-        stats.bodyshots += player.stats.bodyshots || 0;
-        stats.legshots += player.stats.legshots || 0;
-        
-        // 매치당 최고 킬/스코어 업데이트
-        if ((player.stats.kills || 0) > stats.mostKillsInMatch) {
-          stats.mostKillsInMatch = player.stats.kills;
-        }
-        
-        if ((player.stats.score || 0) > stats.highestScore) {
-          stats.highestScore = player.stats.score;
-        }
+    if (playerData) {
+      validGames++;
+      
+      // 기본 통계 업데이트
+      stats.kills += playerData.stats?.kills || 0;
+      stats.deaths += playerData.stats?.deaths || 0;
+      stats.assists += playerData.stats?.assists || 0;
+      stats.score += playerData.stats?.score || 0;
+      stats.damage += Math.round(playerData.damage_made || 0);
+      stats.headshots += playerData.stats?.headshots || 0;
+      stats.bodyshots += playerData.stats?.bodyshots || 0;
+      stats.legshots += playerData.stats?.legshots || 0;
 
-        // 승패 계산 수정
-        if (match.teams && player.team) {
-          const playerTeam = player.team.toLowerCase();
-          if (match.teams[playerTeam] && match.teams[playerTeam].has_won) {
-            wins++;  // 승리 수 증가
-          }
-        }
-      } catch (err) {
-        console.error('스탯 처리 오류:', err);
+      // 승리 여부 확인
+      if (playerData.team?.toLowerCase() === match.teams?.winner?.toLowerCase()) {
+        wins++;
       }
-    });
-  }
+
+      // 에이전트 사용 횟수 추적
+      const agent = playerData.character || 'Unknown';
+      stats.agents[agent] = (stats.agents[agent] || 0) + 1;
+    }
+  });
+
+  // 가장 많이 사용한 에이전트 찾기
+  let mostPlayedAgent = 'Unknown';
+  let maxGames = 0;
+  
+  Object.entries(stats.agents).forEach(([agent, count]) => {
+    if (count > maxGames) {
+      maxGames = count;
+      mostPlayedAgent = agent;
+    }
+  });
+  
+  stats.mostPlayedAgent = mostPlayedAgent;
 
   // 실제 플레이한 게임 수 저장
   stats.games = validGames;
@@ -852,193 +834,97 @@ export const compareCommand = {
       const loadingMsg = await message.reply('🔍 전적을 비교중입니다...');
 
       try {
-        // 두 플레이어의 데이터를 병렬로 가져오기
-        const [player1Account, player2Account] = await Promise.all([
+        // 먼저 계정 정보를 가져와서 region 설정
+        const [account1, account2] = await Promise.all([
           valorantApi.getAccount(player1.name, player1.tag),
           valorantApi.getAccount(player2.name, player2.tag)
         ]);
 
-        // MMR과 매치 데이터도 병렬로 가져오기
-        const [
-          player1MMR,
-          player2MMR,
-          player1Matches,
-          player2Matches
-        ] = await Promise.all([
-          valorantApi.getMMR(player1Account.region, player1Account.puuid),
-          valorantApi.getMMR(player2Account.region, player2Account.puuid),
-          valorantApi.getMatches(player1Account.region, player1.name, player1.tag, 10),
-          valorantApi.getMatches(player2Account.region, player2.name, player2.tag, 10)
+        player1.region = account1.region;
+        player2.region = account2.region;
+
+        // 이제 매치 데이터 가져오기
+        const [player1Data, player2Data] = await Promise.all([
+          valorantApi.getMatches(player1.region, player1.name, player1.tag, 5),
+          valorantApi.getMatches(player2.region, player2.name, player2.tag, 5)
         ]);
 
-        // 플레이어 데이터 객체 생성
-        const player1Data = {
-          mmr: player1MMR,
-          matches: player1Matches,
-          playerCard: player1Account.card.small,
-          accountLevel: player1Account.account_level,
-          mostPlayedAgent: getMostPlayedAgent(player1Matches, player1.name, player1.tag)
-        };
+        // API 응답 구조 확인 및 안전한 접근
+        const matches1 = Array.isArray(player1Data) ? player1Data : 
+                        Array.isArray(player1Data?.data) ? player1Data.data : [];
+        const matches2 = Array.isArray(player2Data) ? player2Data : 
+                        Array.isArray(player2Data?.data) ? player2Data.data : [];
 
-        const player2Data = {
-          mmr: player2MMR,
-          matches: player2Matches,
-          playerCard: player2Account.card.small,
-          accountLevel: player2Account.account_level,
-          mostPlayedAgent: getMostPlayedAgent(player2Matches, player2.name, player2.tag)
-        };
+        // 매치 데이터가 없는 경우 처리
+        if (matches1.length === 0 || matches2.length === 0) {
+          return loadingMsg.edit('❌ 최근 매치 기록이 없습니다.');
+        }
 
         // 통계 계산
-        const stats1 = calculateStats(player1Matches, player1.name, player1.tag, player1Data.mostPlayedAgent, player1MMR);
-        const stats2 = calculateStats(player2Matches, player2.name, player2.tag, player2Data.mostPlayedAgent, player2MMR);
+        const stats1 = calculateStats(matches1, player1.name, player1.tag);
+        const stats2 = calculateStats(matches2, player2.name, player2.tag);
 
-        // 맵 통계 계산
-        player1Data.mapStats = calculateMapStats(player1Matches, player1.name, player1.tag);
-        player2Data.mapStats = calculateMapStats(player2Matches, player2.name, player2.tag);
-
-        // 캔버스 이미지 생성
-        const imageBuffer = await createComparisonImage(
-          player1, player2, stats1, stats2, player1Data, player2Data
-        );
-        
-        // 첨부 파일 생성
-        const attachment = new AttachmentBuilder(imageBuffer, { name: 'comparison.png' });
-
-        // 맵별 승률 계산
-        let mapStatsText1 = '';
-        let mapStatsText2 = '';
-        
-        for (const [mapName, stats] of Object.entries(player1Data.mapStats || {})) {
-          const total = stats.wins + stats.losses;
-          const winRate = total > 0 ? ((stats.wins / total) * 100).toFixed(1) : '0.0';
-          mapStatsText1 += `${mapName}: ${stats.wins}승 ${stats.losses}패 (${winRate}%)\n`;
-        }
-        
-        for (const [mapName, stats] of Object.entries(player2Data.mapStats || {})) {
-          const total = stats.wins + stats.losses;
-          const winRate = total > 0 ? ((stats.wins / total) * 100).toFixed(1) : '0.0';
-          mapStatsText2 += `${mapName}: ${stats.wins}승 ${stats.losses}패 (${winRate}%)\n`;
-        }
-
+        // 임베드 생성
         const embed = {
           color: 0xFF4654,
-          author: {
-            name: '🆚 플레이어 전적 비교'
-          },
           title: `${player1.name}#${player1.tag} vs ${player2.name}#${player2.tag}`,
-          description: `최근 ${player1Data.matches.length}게임 비교 결과`,
+          description: `최근 ${matches1.length}게임 비교`,
           fields: [
             {
-              name: '🎖️ 티어 정보',
-              value: [
-                `🏆 **현재 티어**`,
-                `> ${player1Data.mmr.current_data.currenttierpatched} (${player1Data.mmr.current_data.ranking_in_tier}RR)`,
-                `> ${player2Data.mmr.current_data.currenttierpatched} (${player2Data.mmr.current_data.ranking_in_tier}RR)`,
-                '',
-                `👑 **최고 티어**`,
-                `> ${player1Data.mmr.highest_rank.patched_tier}`,
-                `> ${player2Data.mmr.highest_rank.patched_tier}`
-              ].join('\n'),
+              name: '🎯 K/D/A',
+              value: formatComparison('K/D/A', 
+                `${stats1.avgKills}/${stats1.avgDeaths}/${stats1.avgAssists}`,
+                `${stats2.avgKills}/${stats2.avgDeaths}/${stats2.avgAssists}`
+              ),
               inline: false
             },
             {
-              name: '📊 매치 평균',
-              value: [
-                formatComparison('K/D/A', 
-                  formatKDA(stats1.avgKills, stats1.avgDeaths, stats1.avgAssists),
-                  formatKDA(stats2.avgKills, stats2.avgDeaths, stats2.avgAssists)
-                ),
-                formatComparison('KDA', stats1.kda, stats2.kda),
-                formatComparison('평균 데미지', stats1.avgDamage.toLocaleString(), stats2.avgDamage.toLocaleString()),
-                formatComparison('평균 전투 점수', stats1.avgScore.toLocaleString(), stats2.avgScore.toLocaleString()),
-                stats1.avgFirstBloods > 0 || stats2.avgFirstBloods > 0 ? 
-                  formatComparison('평균 선취킬', stats1.avgFirstBloods, stats2.avgFirstBloods) : ''
-              ].filter(Boolean).join('\n'),
+              name: '💫 KDA',
+              value: formatComparison('KDA', stats1.kda, stats2.kda),
               inline: false
             },
             {
-              name: '🎯 정확도',
-              value: [
-                formatComparison('헤드샷 비율', stats1.headshotPercent, stats2.headshotPercent, false, 'percent'),
-                '',
-                '**샷 분포 (헤드/바디/레그)**',
-                `> ${player1.name}: ${stats1.headshots}/${stats1.bodyshots}/${stats1.legshots}`,
-                `> ${player2.name}: ${stats2.headshots}/${stats2.bodyshots}/${stats2.legshots}`
-              ].join('\n'),
+              name: '💥 평균 데미지',
+              value: formatComparison('데미지', stats1.avgDamage, stats2.avgDamage),
               inline: false
             },
             {
-              name: '💫 하이라이트',
-              value: [
-                formatComparison('최다 킬', stats1.mostKillsInMatch, stats2.mostKillsInMatch),
-                formatComparison('최고 점수', stats1.highestScore.toLocaleString(), stats2.highestScore.toLocaleString()),
-                stats1.clutches > 0 || stats2.clutches > 0 ? 
-                  formatComparison('클러치', stats1.clutches, stats2.clutches) : '',
-                stats1.plants > 0 || stats2.plants > 0 ? 
-                  formatComparison('스파이크 설치', stats1.plants, stats2.plants) : '',
-                stats1.defuses > 0 || stats2.defuses > 0 ? 
-                  formatComparison('스파이크 해체', stats1.defuses, stats2.defuses) : ''
-              ].filter(Boolean).join('\n'),
+              name: '🎯 헤드샷 %',
+              value: formatComparison('헤드샷', stats1.headshotPercent, stats2.headshotPercent, false, 'percent'),
               inline: false
             },
             {
-              name: '📈 전적',
-              value: [
-                formatComparison('승률', stats1.winRate, stats2.winRate, false, 'percent'),
-                '',
-                `**${player1.name}**: ${stats1.wins}승 ${player1Data.matches.length - stats1.wins}패`,
-                `**${player2.name}**: ${stats2.wins}승 ${player2Data.matches.length - stats2.wins}패`
-              ].join('\n'),
+              name: '📈 승률',
+              value: formatComparison('승률', 
+                `${stats1.winRate}% (${stats1.wins}승 ${matches1.length - stats1.wins}패)`,
+                `${stats2.winRate}% (${stats2.wins}승 ${matches2.length - stats2.wins}패)`
+              ),
               inline: false
             },
             {
-              name: '👥 가장 많이 사용한 요원',
-              value: [
-                `**${player1.name}**: ${stats1.mostPlayedAgent}`,
-                `**${player2.name}**: ${stats2.mostPlayedAgent}`
-              ].join('\n'),
+              name: '👥 선호 요원',
+              value: `${player1.name}: ${stats1.mostPlayedAgent}\n${player2.name}: ${stats2.mostPlayedAgent}`,
               inline: false
             }
           ],
           footer: {
             text: '🟢 더 좋음 | 🔴 더 낮음 | ⚪ 동일'
           },
-          timestamp: new Date(),
-          image: {
-            url: 'attachment://comparison.png'
-          }
+          timestamp: new Date()
         };
 
-        // 맵별 통계가 있으면 필드 추가
-        if (mapStatsText1 || mapStatsText2) {
-          embed.fields.push({
-            name: '🗺️ 맵별 전적',
-            value: [
-              `**${player1.name}**:`,
-              mapStatsText1 || '데이터 없음',
-              '',
-              `**${player2.name}**:`,
-              mapStatsText2 || '데이터 없음'
-            ].join('\n'),
-            inline: false
-          });
-        }
-
-        // 0인 통계는 필드에서 제외
-        embed.fields = embed.fields.filter(field => 
-          field.value && field.value.trim() !== ''
-        );
-
-        // 메시지 전송
+        // 임베드 전송
         await loadingMsg.edit({
           content: null,
-          embeds: [embed],
-          files: [attachment]
+          embeds: [embed]
         });
 
       } catch (error) {
         console.error('비교 중 오류:', error);
-        return loadingMsg.edit('❌ 전적 비교 중 오류가 발생했습니다.');
+        if (error.response?.status === 404) {
+          return loadingMsg.edit('❌ 플레이어를 찾을 수 없습니다.');
+        }
+        return loadingMsg.edit(`❌ ${error.message || '전적 비교 중 오류가 발생했습니다.'}`);
       }
 
     } catch (error) {
