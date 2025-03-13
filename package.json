@@ -6,7 +6,8 @@
   "type": "module",
   "scripts": {
     "start": "node src/index.js",
-    "dev": "nodemon src/index.js"
+    "dev": "nodemon src/index.js",
+    "build": "apt-get update && apt-get install -y build-essential libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev librsvg2-dev"
   },
   "dependencies": {
     "@discordjs/voice": "^0.16.1",
@@ -21,8 +22,5 @@
   },
   "engines": {
     "node": ">=16.0.0"
-  },
-  "buildScripts": {
-    "install": "apt-get update && apt-get install -y build-essential libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev librsvg2-dev"
   }
 }

@@ -6,6 +6,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { AttachmentBuilder } from 'discord.js';
 import fs from 'fs';
+import axios from 'axios';
 
 // __dirname 설정 (ES 모듈에서 필요)
 const __filename = fileURLToPath(import.meta.url);
@@ -219,9 +220,9 @@ function calculateStats(matches, playerName, playerTag, providedMostPlayedAgent,
   stats.avgScore = Math.round(stats.score / gameCount);
 
   // KDA 계산
-  stats.kda = stats.deaths > 0 ? 
-    ((stats.kills + stats.assists) / stats.deaths).toFixed(2) : 
-    ((stats.kills + stats.assists) > 0 ? '∞' : '0.00');
+  stats.kda = stats.deaths > 0 
+    ? ((stats.kills + stats.assists) / stats.deaths).toFixed(2) 
+    : ((stats.kills + stats.assists) > 0 ? '∞' : '0.00');
 
   // 승률 계산 수정
   stats.winRate = validGames > 0 ? Math.round((wins / validGames) * 100) : 0;
@@ -297,7 +298,7 @@ function formatComparison(label, val1, val2, reverse = false, format = '') {
 }
 
 function formatKDA(kills, deaths, assists) {
-  return `${parseFloat(kills).toFixed(1)}/${parseFloat(deaths).toFixed(1)}/${parseFloat(assists).toFixed(1)}`;
+  return `${kills}/${deaths}/${assists}`;
 }
 
 // 캔버스 생성 함수 수정 - RR 크기 줄이기, 제목 박스 늘리기
@@ -308,30 +309,25 @@ async function createComparisonImage(player1, player2, stats1, stats2, player1Da
     valorantApi.getTierIcons()
   ]);
 
-  const width = 1200;
-  const height = 1000;
+  const width = 1000;
+  const height = 600;
   const canvas = createCanvas(width, height);
   const ctx = canvas.getContext('2d');
 
-  // 배경 이미지 (발로란트 테마)
-  ctx.fillStyle = '#0F1923'; // 발로란트 다크 블루 배경색
+  // 배경
+  ctx.fillStyle = '#0F1923';
   ctx.fillRect(0, 0, width, height);
-  
-  // 배경에 사선 패턴 추가
-  ctx.strokeStyle = 'rgba(255, 70, 84, 0.08)'; // 반투명 발로란트 레드
-  ctx.lineWidth = 2;
-  for (let i = -height; i < width + height; i += 50) {
-    ctx.beginPath();
-    ctx.moveTo(i, 0);
-    ctx.lineTo(i + height, height);
-    ctx.stroke();
-  }
-  
-  // 상단과 하단 발로란트 레드 액센트
-  ctx.fillStyle = '#FF4654';
-  ctx.fillRect(0, 0, width, 6);
-  ctx.fillRect(0, height - 6, width, 6);
-  
+
+  // 상단 제목 박스
+  ctx.fillStyle = '#1F2326';
+  ctx.fillRect(0, 0, width, 100);
+
+  // 제목 텍스트
+  setFont(ctx, 36, true);
+  ctx.fillStyle = '#FFFFFF';
+  ctx.textAlign = 'center';
+  ctx.fillText(`${player1.name} vs ${player2.name}`, width / 2, 60);
+
   // 플레이어 카드 이미지 로드 시도
   let player1CardImg, player2CardImg;
   let agent1Img, agent2Img;
