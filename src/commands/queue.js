@@ -3,8 +3,8 @@ import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../config/firebase.js';
 import { valorantApi } from '../utils/valorantApi.js';
 
-// 서버별 대기열 저장소
-const waitingQueues = new Map();
+// 서버별 대기열 저장소 - 클라이언트 객체에 저장하도록 변경
+// const waitingQueues = new Map(); // 이 줄 제거
 
 // 서버별 멘션 역할 임시 저장소
 const selectedRoles = new Map();
@@ -81,36 +81,46 @@ const testAccounts = [
 
 // 대기열 생성
 function createWaitingQueue(guildId, limit, message, isMentionEnabled = false) {
-  waitingQueues.set(guildId, {
+  // 글로벌 맵이 아닌 클라이언트 객체에 저장
+  message.client.waitingQueues.set(guildId, {
     limit,
     message,
     participants: [],
-    creatorId: message.author.id,
+    creatorId: message.author.id, // 선착순 생성자 ID
     isMentionEnabled,
     createdAt: Date.now(),
-    voiceChannel: null,  // 연결된 음성 채널
-    allJoined: false    // 모든 참가자 입장 여부
+    voiceChannel: null,
+    allJoined: false,
+    title: message.embeds[0]?.title || ''
   });
+  
+  // 디버깅용 로그
+  console.log(`선착순 생성됨: 서버(${guildId}), 생성자(${message.author.id}), 제목(${message.embeds[0]?.title || '제목 없음'})`);
 }
 
 // 대기열 가져오기
-function getWaitingQueue(guildId) {
-  return waitingQueues.get(guildId);
+function getWaitingQueue(guildId, message) {
+  return message.client.waitingQueues.get(guildId);
 }
 
 // 대기열 제거
-function removeWaitingQueue(guildId) {
-  waitingQueues.delete(guildId);
+function removeWaitingQueue(guildId, message) {
+  message.client.waitingQueues.delete(guildId);
 }
 
 export const queueCommand = {
   name: ['ㅂ선착', 'ㅂ선착현황', 'ㅂ선착취소', 'ㅂ테스트참가'],
   execute: async (message, args) => {
+    // 클라이언트에 waitingQueues가 없으면 생성
+    if (!message.client.waitingQueues) {
+      message.client.waitingQueues = new Map();
+    }
+
     const content = message.content;
 
     // 테스트 계정 참가 명령어
     if (content === 'ㅂ테스트참가') {
-      const queue = getWaitingQueue(message.guild.id);
+      const queue = getWaitingQueue(message.guild.id, message);
       
       if (!queue) {
         return message.reply('❌ 현재 진행 중인 선착순이 없습니다.');
@@ -141,7 +151,7 @@ export const queueCommand = {
       queue.participants.push(...accountsToAdd);
       
       // 임베드 업데이트
-      updateQueueEmbed(queue);
+      updateQueueEmbed(queue, message);
 
       // 성공 메시지 전송
       await message.reply(`✅ 테스트 계정 ${accountsToAdd.length}개가 추가되었습니다: ${accountsToAdd.map(a => a.username).join(', ')}`);
@@ -154,35 +164,41 @@ export const queueCommand = {
           const row = new ActionRowBuilder()
             .addComponents(
               new ButtonBuilder()
-                .setCustomId('start_custom')
-                .setLabel('내전 시작')
+                .setCustomId('queue_start')
+                .setLabel('랜덤 팀 구성')
                 .setStyle(ButtonStyle.Success),
               new ButtonBuilder()
-                .setCustomId('cancel_custom')
-                .setLabel('취소')
+                .setCustomId('queue_manual')
+                .setLabel('수동 팀 구성')
+                .setStyle(ButtonStyle.Primary),
+              new ButtonBuilder()
+                .setCustomId('queue_cancel')
+                .setLabel('취소하기')
                 .setStyle(ButtonStyle.Danger)
             );
 
             const customGameMsg = await message.channel.send({
-              content: `${queue.participants.length}인 발로란트 내전을 시작하시겠습니까? (테스트 계정이 포함되어 있어 음성 채널 체크를 건너뜁니다)`,
+              content: `${queue.participants.length}인 발로란트 내전을 시작하시겠습니까?\n⚠️ 선착순을 생성한 사용자(${message.author})만 버튼을 클릭할 수 있습니다.`,
               components: [row]
             });
 
             const buttonCollector = customGameMsg.createMessageComponentCollector({
-              filter: i => queue.participants.some(p => p.id === i.user.id),
+              filter: i => {
+                console.log(`버튼 클릭: 사용자 ID(${i.user.id}), 생성자 ID(${queue.creatorId}), 일치: ${i.user.id === queue.creatorId}`);
+                return i.user.id === queue.creatorId;
+              },
               time: 60000
             });
 
             buttonCollector.on('collect', async interaction => {
-              if (interaction.customId === 'start_custom') {
+              if (interaction.customId === 'queue_start') {
                 await interaction.deferUpdate();
                 try {
                   const { teamA, teamB, tiers } = await organizeCustomGame(queue, message);
-                  const newChannel = await createAndMoveToVoiceChannel(
+                  await createTeamVoiceChannels(
                     message.guild,
-                    queue.participants,
-                    teamA,
-                    teamB
+                    teamB, // 레드팀
+                    teamA  // 블루팀
                   );
 
                   const teamEmbed = {
@@ -211,12 +227,46 @@ export const queueCommand = {
 
                   await message.channel.send({ embeds: [teamEmbed] });
                   await customGameMsg.delete().catch(() => {});
-                  removeWaitingQueue(message.guild.id);
+                  removeWaitingQueue(message.guild.id, message);
                 } catch (error) {
                   console.error('내전 설정 중 오류:', error);
                   await message.channel.send('❌ 내전 설정 중 오류가 발생했습니다.');
                 }
-              } else if (interaction.customId === 'cancel_custom') {
+              } else if (interaction.customId === 'queue_manual') {
+                try {
+                  // 참가자 목록으로 드롭다운 메뉴 생성
+                  const participants = queue.participants.map((p, index) => {
+                    return {
+                      label: p.username.substring(0, 25), // Discord 드롭다운 최대 길이 제한
+                      value: index.toString(),
+                      description: p.tier ? `티어: ${p.tier}`.substring(0, 50) : '티어 정보 없음'
+                    };
+                  });
+
+                  // 레드팀 선택 드롭다운
+                  const redTeamSelect = new StringSelectMenuBuilder()
+                    .setCustomId(`red_team_select_${message.guild.id}`)
+                    .setPlaceholder('레드팀에 배정할 플레이어 선택')
+                    .setMinValues(Math.floor(queue.participants.length / 2)) // 절반의 플레이어
+                    .setMaxValues(Math.floor(queue.participants.length / 2))
+                    .addOptions(participants);
+
+                  const selectRow = new ActionRowBuilder().addComponents(redTeamSelect);
+
+                  // 선택 UI 전송
+                  await interaction.reply({
+                    content: '🎮 레드팀에 배정할 플레이어를 선택하세요. 나머지는 자동으로 블루팀에 배정됩니다.',
+                    components: [selectRow],
+                    ephemeral: true
+                  });
+                } catch (error) {
+                  console.error('수동 팀 구성 UI 생성 중 오류:', error);
+                  await interaction.reply({
+                    content: '❌ 수동 팀 구성 처리 중 오류가 발생했습니다.',
+                    ephemeral: true
+                  });
+                }
+              } else if (interaction.customId === 'queue_cancel') {
                 await customGameMsg.delete().catch(() => {});
               }
             });
@@ -235,7 +285,7 @@ export const queueCommand = {
 
     // 선착순 현황 확인
     if (content === 'ㅂ선착현황') {
-      const queue = getWaitingQueue(message.guild.id);
+      const queue = getWaitingQueue(message.guild.id, message);
       if (!queue) {
         return message.reply('진행 중인 선착순이 없습니다.');
       }
@@ -254,7 +304,7 @@ export const queueCommand = {
 
     // 선착순 취소
     else if (content === 'ㅂ선착취소') {
-      const queue = getWaitingQueue(message.guild.id);
+      const queue = getWaitingQueue(message.guild.id, message);
       
       if (!queue) {
         return message.reply('❌ 현재 진행 중인 선착순이 없습니다.');
@@ -271,7 +321,7 @@ export const queueCommand = {
         return message.reply('❌ 선착순 취소는 서버 소유자, 관리자, 생성자, 또는 첫 번째 참가자만 가능합니다.');
       }
 
-      removeWaitingQueue(message.guild.id);
+      removeWaitingQueue(message.guild.id, message);
       return message.reply('✅ 선착순이 취소되었습니다.');
     }
 
@@ -297,7 +347,7 @@ export const queueCommand = {
       }
 
       // 이미 진행 중인 선착순이 있는지 확인
-      if (getWaitingQueue(message.guild.id)) {
+      if (getWaitingQueue(message.guild.id, message)) {
         return message.reply('이미 진행 중인 선착순이 있습니다.');
       }
 
@@ -348,7 +398,7 @@ export const queueCommand = {
             await selectMsg.delete().catch(() => {});
             
             // 선택된 역할로 선착순 시작
-            await startQueue(message, limit, title, true, roleId);
+            await handleQueueCreation(message, title, limit, true, roleId);
           });
 
           collector.on('end', async collected => {
@@ -366,14 +416,17 @@ export const queueCommand = {
         }
       } else {
         // 멘션 없이 바로 선착순 시작 (10명 고정)
-        await startQueue(message, limit, title, false);
+        await handleQueueCreation(message, title, limit, false);
       }
     }
+
+    // client에 waitingQueues 저장 추가
+    message.client.waitingQueues = message.client.waitingQueues;
   }
 };
 
 // 선착순 시작 함수
-async function startQueue(message, limit, title, isMentionEnabled, roleId = null) {
+async function handleQueueCreation(message, title, limit, isMentionEnabled, roleId = null) {
   try {
     // 멘션이 활성화된 경우 역할 멘션 메시지 전송
     if (isMentionEnabled && roleId) {
@@ -382,12 +435,10 @@ async function startQueue(message, limit, title, isMentionEnabled, roleId = null
 
     const embed = {
       color: 0x0099ff,
-      title: '🎮 ' + title,
-      description: limit >= 2 && limit % 2 === 0 ? 
-        `현재 인원: 0/${limit}\n\n참가하려면 ✅ 반응을 눌러주세요!` :
-        `현재 인원: 0/${limit}\n\n참가하려면 ✅ 반응을 눌러주세요!`,
+      title: title || `${limit}인 선착순 모집 중!`,
+      description: `현재 인원: 0/${limit}\n\n참가자:\n아직 참가자가 없습니다.`,
       footer: {
-        text: '퇴장하려면 ❌ 반응을 눌러주세요.'
+        text: '✅ 반응을 눌러 참가하거나 ❌ 반응을 눌러 나갈 수 있습니다.'
       }
     };
 
@@ -397,9 +448,18 @@ async function startQueue(message, limit, title, isMentionEnabled, roleId = null
 
     // 선착순 생성 및 생성자 자동 참가
     createWaitingQueue(message.guild.id, limit, queueMessage, isMentionEnabled);
-    const queue = getWaitingQueue(message.guild.id);
+    
+    // 중요: 이 시점에서 큐를 다시 가져옵니다
+    const queue = getWaitingQueue(message.guild.id, message);
+    
+    // 명시적으로 creatorId 설정 (중요)
+    if (queue) {
+      queue.creatorId = message.author.id;
+      console.log(`선착순 생성자 ID 확인: ${queue.creatorId}`);
+    }
+    
     queue.participants.push(message.author);
-    updateQueueEmbed(queue);
+    updateQueueEmbed(queue, message);
 
     // 반응 수집기 생성
     const filter = (reaction, user) => {
@@ -410,7 +470,7 @@ async function startQueue(message, limit, title, isMentionEnabled, roleId = null
 
     collector.on('collect', async (reaction, user) => {
       try {
-        const queue = getWaitingQueue(message.guild.id);
+        const queue = getWaitingQueue(message.guild.id, message);
         if (!queue) return;
 
         if (reaction.emoji.name === '✅') {
@@ -427,7 +487,7 @@ async function startQueue(message, limit, title, isMentionEnabled, roleId = null
           }
 
           queue.participants.push(user);
-          updateQueueEmbed(queue);
+          updateQueueEmbed(queue, message);
 
           // 인원이 다 찼을 때
           if (queue.participants.length === queue.limit && queue.participants.length >= 2 && queue.participants.length % 2 === 0) {
@@ -439,35 +499,41 @@ async function startQueue(message, limit, title, isMentionEnabled, roleId = null
               const row = new ActionRowBuilder()
                 .addComponents(
                   new ButtonBuilder()
-                    .setCustomId('start_custom')
-                    .setLabel('내전 시작')
+                    .setCustomId('queue_start')
+                    .setLabel('랜덤 팀 구성')
                     .setStyle(ButtonStyle.Success),
                   new ButtonBuilder()
-                    .setCustomId('cancel_custom')
-                    .setLabel('취소')
+                    .setCustomId('queue_manual')
+                    .setLabel('수동 팀 구성')
+                    .setStyle(ButtonStyle.Primary),
+                  new ButtonBuilder()
+                    .setCustomId('queue_cancel')
+                    .setLabel('취소하기')
                     .setStyle(ButtonStyle.Danger)
                 );
 
                 const customGameMsg = await message.channel.send({
-                  content: `${queue.participants.length}인 발로란트 내전을 시작하시겠습니까? (테스트 계정이 포함되어 있어 음성 채널 체크를 건너뜁니다)`,
+                  content: `${queue.participants.length}인 발로란트 내전을 시작하시겠습니까?\n⚠️ 선착순을 생성한 사용자(${message.author})만 버튼을 클릭할 수 있습니다.`,
                   components: [row]
                 });
 
                 const buttonCollector = customGameMsg.createMessageComponentCollector({
-                  filter: i => queue.participants.some(p => p.id === i.user.id),
+                  filter: i => {
+                    console.log(`버튼 클릭: 사용자 ID(${i.user.id}), 생성자 ID(${queue.creatorId}), 일치: ${i.user.id === queue.creatorId}`);
+                    return i.user.id === queue.creatorId;
+                  },
                   time: 60000
                 });
 
                 buttonCollector.on('collect', async interaction => {
-                  if (interaction.customId === 'start_custom') {
+                  if (interaction.customId === 'queue_start') {
                     await interaction.deferUpdate();
                     try {
                       const { teamA, teamB, tiers } = await organizeCustomGame(queue, message);
-                      const newChannel = await createAndMoveToVoiceChannel(
+                      await createTeamVoiceChannels(
                         message.guild,
-                        queue.participants,
-                        teamA,
-                        teamB
+                        teamB, // 레드팀
+                        teamA  // 블루팀
                       );
 
                       const teamEmbed = {
@@ -496,12 +562,46 @@ async function startQueue(message, limit, title, isMentionEnabled, roleId = null
 
                       await message.channel.send({ embeds: [teamEmbed] });
                       await customGameMsg.delete().catch(() => {});
-                      removeWaitingQueue(message.guild.id);
+                      removeWaitingQueue(message.guild.id, message);
                     } catch (error) {
                       console.error('내전 설정 중 오류:', error);
                       await message.channel.send('❌ 내전 설정 중 오류가 발생했습니다.');
                     }
-                  } else if (interaction.customId === 'cancel_custom') {
+                  } else if (interaction.customId === 'queue_manual') {
+                    try {
+                      // 참가자 목록으로 드롭다운 메뉴 생성
+                      const participants = queue.participants.map((p, index) => {
+                        return {
+                          label: p.username.substring(0, 25), // Discord 드롭다운 최대 길이 제한
+                          value: index.toString(),
+                          description: p.tier ? `티어: ${p.tier}`.substring(0, 50) : '티어 정보 없음'
+                        };
+                      });
+
+                      // 레드팀 선택 드롭다운
+                      const redTeamSelect = new StringSelectMenuBuilder()
+                        .setCustomId(`red_team_select_${message.guild.id}`)
+                        .setPlaceholder('레드팀에 배정할 플레이어 선택')
+                        .setMinValues(Math.floor(queue.participants.length / 2)) // 절반의 플레이어
+                        .setMaxValues(Math.floor(queue.participants.length / 2))
+                        .addOptions(participants);
+
+                      const selectRow = new ActionRowBuilder().addComponents(redTeamSelect);
+
+                      // 선택 UI 전송
+                      await interaction.reply({
+                        content: '🎮 레드팀에 배정할 플레이어를 선택하세요. 나머지는 자동으로 블루팀에 배정됩니다.',
+                        components: [selectRow],
+                        ephemeral: true
+                      });
+                    } catch (error) {
+                      console.error('수동 팀 구성 UI 생성 중 오류:', error);
+                      await interaction.reply({
+                        content: '❌ 수동 팀 구성 처리 중 오류가 발생했습니다.',
+                        ephemeral: true
+                      });
+                    }
+                  } else if (interaction.customId === 'queue_cancel') {
                     await customGameMsg.delete().catch(() => {});
                   }
                 });
@@ -516,35 +616,41 @@ async function startQueue(message, limit, title, isMentionEnabled, roleId = null
               const row = new ActionRowBuilder()
                 .addComponents(
                   new ButtonBuilder()
-                    .setCustomId('start_custom')
-                    .setLabel('내전 시작')
+                    .setCustomId('queue_start')
+                    .setLabel('랜덤 팀 구성')
                     .setStyle(ButtonStyle.Success),
                   new ButtonBuilder()
-                    .setCustomId('cancel_custom')
-                    .setLabel('취소')
+                    .setCustomId('queue_manual')
+                    .setLabel('수동 팀 구성')
+                    .setStyle(ButtonStyle.Primary),
+                  new ButtonBuilder()
+                    .setCustomId('queue_cancel')
+                    .setLabel('취소하기')
                     .setStyle(ButtonStyle.Danger)
                 );
 
                 const customGameMsg = await message.channel.send({
-                  content: `${queue.participants.length}인 발로란트 내전을 시작하시겠습니까?`,
+                  content: `${queue.participants.length}인 발로란트 내전을 시작하시겠습니까?\n⚠️ 선착순을 생성한 사용자(${message.author})만 버튼을 클릭할 수 있습니다.`,
                   components: [row]
                 });
 
                 const buttonCollector = customGameMsg.createMessageComponentCollector({
-                  filter: i => queue.participants.some(p => p.id === i.user.id),
+                  filter: i => {
+                    console.log(`버튼 클릭: 사용자 ID(${i.user.id}), 생성자 ID(${queue.creatorId}), 일치: ${i.user.id === queue.creatorId}`);
+                    return i.user.id === queue.creatorId;
+                  },
                   time: 60000
                 });
 
                 buttonCollector.on('collect', async interaction => {
-                  if (interaction.customId === 'start_custom') {
+                  if (interaction.customId === 'queue_start') {
                     await interaction.deferUpdate();
                     try {
                       const { teamA, teamB, tiers } = await organizeCustomGame(queue, message);
-                      const newChannel = await createAndMoveToVoiceChannel(
+                      await createTeamVoiceChannels(
                         message.guild,
-                        queue.participants,
-                        teamA,
-                        teamB
+                        teamB, // 레드팀
+                        teamA  // 블루팀
                       );
 
                       const teamEmbed = {
@@ -573,12 +679,46 @@ async function startQueue(message, limit, title, isMentionEnabled, roleId = null
 
                       await message.channel.send({ embeds: [teamEmbed] });
                       await customGameMsg.delete().catch(() => {});
-                      removeWaitingQueue(message.guild.id);
+                      removeWaitingQueue(message.guild.id, message);
                     } catch (error) {
                       console.error('내전 설정 중 오류:', error);
                       await message.channel.send('❌ 내전 설정 중 오류가 발생했습니다.');
                     }
-                  } else if (interaction.customId === 'cancel_custom') {
+                  } else if (interaction.customId === 'queue_manual') {
+                    try {
+                      // 참가자 목록으로 드롭다운 메뉴 생성
+                      const participants = queue.participants.map((p, index) => {
+                        return {
+                          label: p.username.substring(0, 25), // Discord 드롭다운 최대 길이 제한
+                          value: index.toString(),
+                          description: p.tier ? `티어: ${p.tier}`.substring(0, 50) : '티어 정보 없음'
+                        };
+                      });
+
+                      // 레드팀 선택 드롭다운
+                      const redTeamSelect = new StringSelectMenuBuilder()
+                        .setCustomId(`red_team_select_${message.guild.id}`)
+                        .setPlaceholder('레드팀에 배정할 플레이어 선택')
+                        .setMinValues(Math.floor(queue.participants.length / 2)) // 절반의 플레이어
+                        .setMaxValues(Math.floor(queue.participants.length / 2))
+                        .addOptions(participants);
+
+                      const selectRow = new ActionRowBuilder().addComponents(redTeamSelect);
+
+                      // 선택 UI 전송
+                      await interaction.reply({
+                        content: '🎮 레드팀에 배정할 플레이어를 선택하세요. 나머지는 자동으로 블루팀에 배정됩니다.',
+                        components: [selectRow],
+                        ephemeral: true
+                      });
+                    } catch (error) {
+                      console.error('수동 팀 구성 UI 생성 중 오류:', error);
+                      await interaction.reply({
+                        content: '❌ 수동 팀 구성 처리 중 오류가 발생했습니다.',
+                        ephemeral: true
+                      });
+                    }
+                  } else if (interaction.customId === 'queue_cancel') {
                     await customGameMsg.delete().catch(() => {});
                   }
                 });
@@ -595,7 +735,7 @@ async function startQueue(message, limit, title, isMentionEnabled, roleId = null
           const index = queue.participants.findIndex(p => p.id === user.id);
           if (index !== -1) {
             queue.participants.splice(index, 1);
-            updateQueueEmbed(queue);
+            updateQueueEmbed(queue, message);
           }
         }
       } catch (error) {
@@ -603,8 +743,8 @@ async function startQueue(message, limit, title, isMentionEnabled, roleId = null
       }
     });
   } catch (error) {
-    console.error('선착순 시작 중 오류:', error);
-    message.reply('❌ 선착순 시작 중 오류가 발생했습니다.');
+    console.error('선착순 생성 중 오류:', error);
+    message.reply('❌ 선착순 생성 중 오류가 발생했습니다.');
   }
 }
 
@@ -625,78 +765,118 @@ async function handleFullQueue(message, queue) {
       const row = new ActionRowBuilder()
         .addComponents(
           new ButtonBuilder()
-            .setCustomId('start_custom')
-            .setLabel('내전 시작')
+            .setCustomId('queue_start')
+            .setLabel('랜덤 팀 구성')
             .setStyle(ButtonStyle.Success),
           new ButtonBuilder()
-            .setCustomId('cancel_custom')
-            .setLabel('취소')
+            .setCustomId('queue_manual')
+            .setLabel('수동 팀 구성')
+            .setStyle(ButtonStyle.Primary),
+          new ButtonBuilder()
+            .setCustomId('queue_cancel')
+            .setLabel('취소하기')
             .setStyle(ButtonStyle.Danger)
         );
 
-      const customGameMsg = await message.channel.send({
-        content: `모든 참가자가 음성 채널에 있습니다. ${queue.participants.length}인 발로란트 내전을 시작하시겠습니까?`,
-        components: [row]
-      });
+        const customGameMsg = await message.channel.send({
+          content: `${queue.participants.length}인 발로란트 내전을 시작하시겠습니까?\n⚠️ 선착순을 생성한 사용자(${message.author})만 버튼을 클릭할 수 있습니다.`,
+          components: [row]
+        });
 
-      const buttonCollector = customGameMsg.createMessageComponentCollector({
-        filter: i => queue.participants.some(p => p.id === i.user.id),
-        time: 60000
-      });
+        const buttonCollector = customGameMsg.createMessageComponentCollector({
+          filter: i => {
+            console.log(`버튼 클릭: 사용자 ID(${i.user.id}), 생성자 ID(${queue.creatorId}), 일치: ${i.user.id === queue.creatorId}`);
+            return i.user.id === queue.creatorId;
+          },
+          time: 60000
+        });
 
-      buttonCollector.on('collect', async interaction => {
-        if (interaction.customId === 'start_custom') {
-          await interaction.deferUpdate();
-          try {
-            const { teamA, teamB, tiers } = await organizeCustomGame(queue, message);
-            const newChannel = await createAndMoveToVoiceChannel(
-              message.guild,
-              queue.participants,
-              teamA,
-              teamB
-            );
+        buttonCollector.on('collect', async interaction => {
+          if (interaction.customId === 'queue_start') {
+            await interaction.deferUpdate();
+            try {
+              const { teamA, teamB, tiers } = await organizeCustomGame(queue, message);
+              await createTeamVoiceChannels(
+                message.guild,
+                teamB, // 레드팀
+                teamA  // 블루팀
+              );
 
-            const teamEmbed = {
-              color: 0xFF4654,
-              title: '🎮 발로란트 내전 팀 구성',
-              fields: [
-                {
-                  name: '🔵 아군 팀',
-                  value: teamA.map(p => {
-                    const tier = tiers.get(p.id)?.tier || 'Unknown';
-                    return `${p.username} (${tier})`;
-                  }).join('\n'),
-                  inline: true
-                },
-                {
-                  name: '🔴 적군 팀',
-                  value: teamB.map(p => {
-                    const tier = tiers.get(p.id)?.tier || 'Unknown';
-                    return `${p.username} (${tier})`;
-                  }).join('\n'),
-                  inline: true
-                }
-              ],
-              footer: { text: '즐거운 게임 되세요! 🎉' }
-            };
+              const teamEmbed = {
+                color: 0xFF4654,
+                title: '🎮 발로란트 내전 팀 구성',
+                fields: [
+                  {
+                    name: '🔵 아군 팀',
+                    value: teamA.map(p => {
+                      const tier = tiers.get(p.id)?.tier || 'Unknown';
+                      return `${p.username} (${tier})`;
+                    }).join('\n'),
+                    inline: true
+                  },
+                  {
+                    name: '🔴 적군 팀',
+                    value: teamB.map(p => {
+                      const tier = tiers.get(p.id)?.tier || 'Unknown';
+                      return `${p.username} (${tier})`;
+                    }).join('\n'),
+                    inline: true
+                  }
+                ],
+                footer: { text: '즐거운 게임 되세요! 🎉' }
+              };
 
-            await message.channel.send({ embeds: [teamEmbed] });
+              await message.channel.send({ embeds: [teamEmbed] });
+              await customGameMsg.delete().catch(() => {});
+              removeWaitingQueue(message.guild.id, message);
+            } catch (error) {
+              console.error('내전 설정 중 오류:', error);
+              await message.channel.send('❌ 내전 설정 중 오류가 발생했습니다.');
+            }
+          } else if (interaction.customId === 'queue_manual') {
+            try {
+              // 참가자 목록으로 드롭다운 메뉴 생성
+              const participants = queue.participants.map((p, index) => {
+                return {
+                  label: p.username.substring(0, 25), // Discord 드롭다운 최대 길이 제한
+                  value: index.toString(),
+                  description: p.tier ? `티어: ${p.tier}`.substring(0, 50) : '티어 정보 없음'
+                };
+              });
+
+              // 레드팀 선택 드롭다운
+              const redTeamSelect = new StringSelectMenuBuilder()
+                .setCustomId(`red_team_select_${message.guild.id}`)
+                .setPlaceholder('레드팀에 배정할 플레이어 선택')
+                .setMinValues(Math.floor(queue.participants.length / 2)) // 절반의 플레이어
+                .setMaxValues(Math.floor(queue.participants.length / 2))
+                .addOptions(participants);
+
+              const selectRow = new ActionRowBuilder().addComponents(redTeamSelect);
+
+              // 선택 UI 전송
+              await interaction.reply({
+                content: '🎮 레드팀에 배정할 플레이어를 선택하세요. 나머지는 자동으로 블루팀에 배정됩니다.',
+                components: [selectRow],
+                ephemeral: true
+              });
+            } catch (error) {
+              console.error('수동 팀 구성 UI 생성 중 오류:', error);
+              await interaction.reply({
+                content: '❌ 수동 팀 구성 처리 중 오류가 발생했습니다.',
+                ephemeral: true
+              });
+            }
+          } else if (interaction.customId === 'queue_cancel') {
             await customGameMsg.delete().catch(() => {});
-            removeWaitingQueue(message.guild.id);
-          } catch (error) {
-            console.error('내전 설정 중 오류:', error);
-            await message.channel.send('❌ 내전 설정 중 오류가 발생했습니다.');
           }
-        } else if (interaction.customId === 'cancel_custom') {
-          await customGameMsg.delete().catch(() => {});
-        }
-      });
+        });
 
-      buttonCollector.on('end', collected => {
-        if (collected.size === 0) {
-          customGameMsg.delete().catch(() => {});
-        }
-      });
+        buttonCollector.on('end', collected => {
+          if (collected.size === 0) {
+            customGameMsg.delete().catch(() => {});
+          }
+        });
     }
   } catch (error) {
     console.error('대기열 처리 중 오류:', error);
@@ -704,7 +884,7 @@ async function handleFullQueue(message, queue) {
 }
 
 // 대기열 임베드 업데이트
-function updateQueueEmbed(queue) {
+function updateQueueEmbed(queue, message) {
   const participantsList = queue.participants.map((p, index) => 
     `${index + 1}. ${queue.isMentionEnabled ? p.toString() : p.username}`
   ).join('\n');
@@ -735,7 +915,7 @@ function updateQueueEmbed(queue) {
     };
 
     queue.message.edit({ embeds: [cancelEmbed] });
-    removeWaitingQueue(queue.message.guild.id);
+    removeWaitingQueue(queue.message.guild.id, message);
   }
 }
 
@@ -818,7 +998,7 @@ async function organizeCustomGame(queue, message) {
 }
 
 // 음성 채널 생성 및 이동 함수 수정
-async function createAndMoveToVoiceChannel(guild, participants, teamA, teamB) {
+export async function createTeamVoiceChannels(guild, redTeam, blueTeam) {
   try {
     // 발로란트 카테고리 찾기
     const category = guild.channels.cache.find(c => c.type === ChannelType.GuildCategory && c.name.toLowerCase().includes('발로란트'));
@@ -828,18 +1008,18 @@ async function createAndMoveToVoiceChannel(guild, participants, teamA, teamB) {
       name: '🔵 블루팀',
       type: ChannelType.GuildVoice,
       parent: category?.id,
-      userLimit: Math.ceil(participants.length / 2)
+      userLimit: Math.ceil(blueTeam.length)
     });
 
     const redChannel = await guild.channels.create({
       name: '🔴 레드팀',
       type: ChannelType.GuildVoice,
       parent: category?.id,
-      userLimit: Math.ceil(participants.length / 2)
+      userLimit: Math.ceil(redTeam.length)
     });
 
     // 참가자들을 팀별 채널로 이동
-    for (const participant of participants) {
+    for (const participant of [...blueTeam, ...redTeam]) {
       // 테스트 계정은 건너뛰기
       if (participant.id.startsWith('test')) continue;
 
@@ -847,7 +1027,7 @@ async function createAndMoveToVoiceChannel(guild, participants, teamA, teamB) {
         const member = await guild.members.fetch(participant.id);
         if (member.voice.channel) {
           // 팀에 따라 적절한 채널로 이동
-          const targetChannel = teamA.some(p => p.id === participant.id) ? blueChannel : redChannel;
+          const targetChannel = blueTeam.some(p => p.id === participant.id) ? blueChannel : redChannel;
           await member.voice.setChannel(targetChannel);
         }
       } catch (error) {
@@ -870,11 +1050,11 @@ async function createAndMoveToVoiceChannel(guild, participants, teamA, teamB) {
     // 각 채널에 대한 이벤트 리스너 설정
     const voiceStateHandler = async (oldState, newState) => {
       // 블루팀 채널 체크
-      if (oldState.channel === blueChannel) {
+      if (oldState.channel?.id === blueChannel.id) {
         await checkAndDeleteChannel(blueChannel);
       }
       // 레드팀 채널 체크
-      if (oldState.channel === redChannel) {
+      if (oldState.channel?.id === redChannel.id) {
         await checkAndDeleteChannel(redChannel);
       }
     };
@@ -886,8 +1066,12 @@ async function createAndMoveToVoiceChannel(guild, participants, teamA, teamB) {
     setTimeout(() => {
       guild.client.removeListener('voiceStateUpdate', voiceStateHandler);
       // 채널이 아직 존재하면 삭제
-      blueChannel.delete().catch(() => {});
-      redChannel.delete().catch(() => {});
+      if (guild.channels.cache.has(blueChannel.id)) {
+        blueChannel.delete().catch(() => {});
+      }
+      if (guild.channels.cache.has(redChannel.id)) {
+        redChannel.delete().catch(() => {});
+      }
     }, 30 * 60 * 1000); // 30분
 
     return { blueChannel, redChannel };
