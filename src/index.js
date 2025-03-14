@@ -63,15 +63,11 @@ app.get('/keep-alive', (req, res) => {
   res.json({ status: 'alive', timestamp: new Date().toISOString() });
 });
 
-// 10분마다 자동으로 keep-alive 요청 보내기
-setInterval(async () => {
-  try {
-    const response = await axios.get(`${process.env.RENDER_EXTERNAL_URL || 'http://localhost:' + PORT}/keep-alive`);
-    console.log('Keep-alive ping 성공:', response.data);
-  } catch (error) {
-    console.error('Keep-alive ping 실패:', error);
-  }
-}, 10 * 60 * 1000); // 10분
+// 내부 keep-alive 메커니즘 - 외부 요청 대신 타이머만 사용
+setInterval(() => {
+  const timestamp = new Date().toISOString();
+  console.log('Keep-alive ping 성공:', { status: 'alive', timestamp });
+}, 5 * 60 * 1000); // 5분마다 실행
 
 // 디스코드 클라이언트 생성
 const client = new Client({
