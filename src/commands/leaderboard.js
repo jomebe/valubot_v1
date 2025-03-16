@@ -1,6 +1,7 @@
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../config/firebase.js';
 import axios from 'axios';
+import { valorantApi } from '../utils/valorantApi.js';
 
 const tierOrder = {
   'Unranked': 0,
@@ -13,6 +14,13 @@ const tierOrder = {
   'Ascendant': 7,
   'Immortal': 8,
   'Radiant': 9
+};
+
+// 티어 숫자 매핑
+const tierNumberOrder = {
+  '1': 1,
+  '2': 2,
+  '3': 3
 };
 
 export const leaderboardCommand = {
@@ -36,44 +44,55 @@ export const leaderboardCommand = {
       // 각 계정의 티어 정보 가져오기
       for (const [userId, userData] of Object.entries(accounts)) {
         try {
-          const response = await axios.get(
-            `https://api.henrikdev.xyz/valorant/v2/mmr/${userData.region}/${encodeURIComponent(userData.valorantName)}/${encodeURIComponent(userData.valorantTag)}`,
-            {
-              headers: {
-                'Authorization': process.env.VALORANT_API_KEY
-              }
-            }
-          );
-
-          if (response.data.status === 200) {
-            const mmrData = response.data.data;
-            const currentTier = mmrData.current_data.currenttierpatched.split(' ')[0];
-            const currentNumber = mmrData.current_data.currenttierpatched.split(' ')[1] || '';
-            
-            players.push({
-              discordId: userId,
-              name: userData.valorantName,
-              tag: userData.valorantTag,
-              tier: currentTier,
-              tierNumber: currentNumber,
-              rr: mmrData.current_data.ranking_in_tier,
-              peakTier: mmrData.highest_rank.patched_tier
-            });
+          const mmrData = await valorantApi.getMMR(userData.region, userData.puuid);
+          
+          // API에서 티어 정보 추출
+          const currentTierPatched = mmrData.current_data.currenttierpatched || 'Unranked';
+          let currentTier = 'Unranked';
+          let currentNumber = '';
+          
+          // 티어와 숫자 분리 (예: "Diamond 2" -> tier="Diamond", number="2")
+          const tierParts = currentTierPatched.split(' ');
+          if (tierParts.length > 0) {
+            currentTier = tierParts[0];
+            currentNumber = tierParts.length > 1 ? tierParts[1] : '';
           }
+          
+          players.push({
+            discordId: userId,
+            name: userData.valorantName,
+            tag: userData.valorantTag,
+            tier: currentTier,
+            tierNumber: currentNumber,
+            rr: mmrData.current_data.ranking_in_tier || 0,
+            peakTier: mmrData.highest_rank?.patched_tier || 'Unranked',
+            fullTier: currentTierPatched
+          });
         } catch (error) {
           console.error(`${userData.valorantName}#${userData.valorantTag} 정보 조회 실패:`, error);
         }
       }
 
-      // 티어 순으로 정렬
+      // 티어 순으로 정렬 (수정된 정렬 로직)
       players.sort((a, b) => {
-        if (tierOrder[a.tier] === tierOrder[b.tier]) {
-          if (a.tierNumber === b.tierNumber) {
-            return b.rr - a.rr;
-          }
-          return parseInt(b.tierNumber || '0') - parseInt(a.tierNumber || '0');
+        // 티어 순서 비교
+        const aTierValue = tierOrder[a.tier] || 0;
+        const bTierValue = tierOrder[b.tier] || 0;
+        
+        if (aTierValue !== bTierValue) {
+          return bTierValue - aTierValue; // 높은 티어가 먼저
         }
-        return tierOrder[b.tier] - tierOrder[a.tier];
+        
+        // 같은 티어면 티어 숫자 비교 (Diamond 3 > Diamond 2 > Diamond 1)
+        const aTierNumber = parseInt(a.tierNumber) || 0;
+        const bTierNumber = parseInt(b.tierNumber) || 0;
+        
+        if (aTierNumber !== bTierNumber) {
+          return bTierNumber - aTierNumber; // 높은 숫자가 먼저
+        }
+        
+        // 티어 숫자까지 같으면 RR 비교
+        return b.rr - a.rr; // 높은 RR이 먼저
       });
 
       if (players.length === 0) {
@@ -85,10 +104,7 @@ export const leaderboardCommand = {
         title: '🏆 발로란트 티어 리더보드',
         description: players.map((player, index) => {
           const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}.`;
-          const tierDisplay = player.tierNumber ? 
-            `${player.tier} ${player.tierNumber}` : 
-            player.tier;
-          return `${medal} <@${player.discordId}> - ${tierDisplay} (${player.rr}RR)\n┗ 최고 티어: ${player.peakTier}`;
+          return `${medal} <@${player.discordId}> - ${player.fullTier} (${player.rr}RR)\n┗ 최고 티어: ${player.peakTier}`;
         }).join('\n\n'),
         footer: {
           text: `${message.guild.name} 서버의 리더보드 | 총 ${players.length}명`
