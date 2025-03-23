@@ -109,7 +109,7 @@ function removeWaitingQueue(guildId, message) {
 }
 
 export const queueCommand = {
-  name: ['ㅂ선착', 'ㅂ선착현황', 'ㅂ선착취소', 'ㅂ테스트참가'],
+  name: ['ㅂ선착', 'ㅂ선착현황', 'ㅂ선착취소', 'ㅂ테스트참가', 'ㅂ선착멘션'],
   execute: async (message, args) => {
     // 클라이언트에 waitingQueues가 없으면 생성
     if (!message.client.waitingQueues) {
@@ -323,6 +323,39 @@ export const queueCommand = {
 
       removeWaitingQueue(message.guild.id, message);
       return message.reply('✅ 선착순이 취소되었습니다.');
+    }
+
+    // 선착순 멘션
+    else if (content === 'ㅂ선착멘션') {
+      const queue = getWaitingQueue(message.guild.id, message);
+      if (!queue) {
+        return message.reply('❌ 진행 중인 선착순이 없습니다.');
+      }
+      
+      if (queue.participants.length === 0) {
+        return message.reply('❌ 현재 참가자가 없습니다.');
+      }
+      
+      // 권한 체크 - 선착순 생성자나 관리자만 사용 가능
+      const isAdmin = message.member.permissions.has('Administrator');
+      const isCreator = queue.creatorId === message.author.id;
+      
+      if (!isAdmin && !isCreator) {
+        return message.reply('❌ 선착순 멘션은 선착순 생성자나 관리자만 사용할 수 있습니다.');
+      }
+      
+      // 참가자 멘션 생성
+      const mentions = queue.participants.map(p => p.toString()).join(' ');
+      
+      // 제목과 참가자 수를 포함한 메시지 생성
+      const title = queue.message.embeds[0].title || '선착순';
+      
+      await message.channel.send({
+        content: `📢 **${title}** 참가자 전체 멘션 (${queue.participants.length}명)\n${mentions}`,
+        allowedMentions: { users: queue.participants.map(p => p.id) }
+      });
+      
+      return;
     }
 
     // 선착순 생성
