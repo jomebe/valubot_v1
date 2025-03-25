@@ -66,15 +66,19 @@ app.get('/keep-alive', (req, res) => {
 // 메모리 사용량 모니터링 엔드포인트 추가
 app.get('/status', (req, res) => {
   const memoryUsage = process.memoryUsage();
+  const uptime = process.uptime();
+  const uptimeFormatted = `${Math.floor(uptime / 86400)}일 ${Math.floor((uptime % 86400) / 3600)}시간 ${Math.floor((uptime % 3600) / 60)}분`;
+  
   res.json({
     status: 'online',
-    uptime: process.uptime(),
+    uptime: uptimeFormatted,
     memory: {
       rss: `${Math.round(memoryUsage.rss / 1024 / 1024)} MB`,
       heapTotal: `${Math.round(memoryUsage.heapTotal / 1024 / 1024)} MB`,
       heapUsed: `${Math.round(memoryUsage.heapUsed / 1024 / 1024)} MB`
     },
-    timestamp: new Date().toISOString()
+    guilds: client.guilds.cache.size,
+    lastPing: new Date().toISOString()
   });
 });
 
@@ -420,14 +424,19 @@ client.on('interactionCreate', async (interaction) => {
   }
 });
 
-// 새로운 자동 핑 코드 추가
-// setInterval(async () => {
-//   try {
-//     // 외부 URL로 직접 핑 요청 보내기
-//     const pingUrl = process.env.RENDER_EXTERNAL_URL || 'http://localhost:10000';
-//     const response = await axios.get(`${pingUrl}/keep-alive`);
-//     console.log('Keep-alive ping 성공:', response.data);
-//   } catch (error) {
-//     console.error('Keep-alive ping 실패:', error.message);
-//   }
-// }, 5 * 60 * 1000); // 5분마다 실행 
+// 자동 핑 코드 - CloudType용으로 수정
+setInterval(async () => {
+  try {
+    // 자체 서버에 핑 요청 보내기
+    const response = await axios.get(`http://localhost:${PORT}/keep-alive`);
+    console.log('Keep-alive ping 성공:', response.data);
+    
+    // 외부 URL이 설정되어 있으면 외부에서도 핑
+    if (process.env.CLOUDTYPE_URL) {
+      const externalResponse = await axios.get(`${process.env.CLOUDTYPE_URL}/keep-alive`);
+      console.log('외부 ping 성공:', externalResponse.data);
+    }
+  } catch (error) {
+    console.error('Keep-alive ping 실패:', error.message);
+  }
+}, 10 * 60 * 1000); // 10분마다 실행 
