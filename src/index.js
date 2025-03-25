@@ -431,7 +431,7 @@ setInterval(async () => {
     const response = await axios.get(`http://localhost:${PORT}/keep-alive`);
     console.log('Keep-alive ping 성공:', response.data);
     
-    // 외부 URL이 설정되어 있으면 외부에서도 핑
+    // 외부 URL 핑
     if (process.env.CLOUDTYPE_URL) {
       const externalResponse = await axios.get(`${process.env.CLOUDTYPE_URL}/keep-alive`);
       console.log('외부 ping 성공:', externalResponse.data);
@@ -439,4 +439,4 @@ setInterval(async () => {
   } catch (error) {
     console.error('Keep-alive ping 실패:', error.message);
   }
-}, 10 * 60 * 1000); // 10분마다 실행 
+}, 2 * 60 * 1000); // 2분마다 실행 
