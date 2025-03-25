@@ -421,13 +421,13 @@ client.on('interactionCreate', async (interaction) => {
 });
 
 // 새로운 자동 핑 코드 추가
-setInterval(async () => {
-  try {
-    // 외부 URL로 직접 핑 요청 보내기
-    const pingUrl = process.env.RENDER_EXTERNAL_URL || 'http://localhost:10000';
-    const response = await axios.get(`${pingUrl}/keep-alive`);
-    console.log('Keep-alive ping 성공:', response.data);
-  } catch (error) {
-    console.error('Keep-alive ping 실패:', error.message);
-  }
-}, 5 * 60 * 1000); // 5분마다 실행 
+// setInterval(async () => {
+//   try {
+//     // 외부 URL로 직접 핑 요청 보내기
+//     const pingUrl = process.env.RENDER_EXTERNAL_URL || 'http://localhost:10000';
+//     const response = await axios.get(`${pingUrl}/keep-alive`);
+//     console.log('Keep-alive ping 성공:', response.data);
+//   } catch (error) {
+//     console.error('Keep-alive ping 실패:', error.message);
+//   }
+// }, 5 * 60 * 1000); // 5분마다 실행 
