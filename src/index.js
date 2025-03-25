@@ -123,7 +123,6 @@ const commands = new Map([
   ['ㅂ선착현황', queueCommand],
   ['ㅂ선착취소', queueCommand],
   ['ㅂ테스트참가', queueCommand],
-  ['ㅂ선착멘션', queueCommand],
 ]);
 
 client.on('ready', () => {
