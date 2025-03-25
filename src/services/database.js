@@ -2,6 +2,7 @@ import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { db } from '../config/firebase.js';
 import { saveJsonToFile, loadJsonFromFile } from '../utils/fileManager.js';
 import { FILE_PATHS, DEFAULT_GUILD_SETTINGS } from '../config/constants.js';
+import { getFirestore } from 'firebase/firestore';
 
 export async function saveAttendanceData(data) {
   try {
@@ -103,5 +104,24 @@ export async function loadGuildSettings(guildId) {
   } catch (error) {
     console.error(`설정 로드 중 치명적 오류 (${guildId}):`, error);
     return { ...DEFAULT_GUILD_SETTINGS };
+  }
+}
+
+// 발로란트 계정 정보 가져오기
+export async function getValorantAccount(userId) {
+  try {
+    const db = getFirestore();
+    const userRef = doc(db, 'users', userId);
+    const userDoc = await getDoc(userRef);
+    
+    if (userDoc.exists()) {
+      const userData = userDoc.data();
+      return userData.valorantAccount || null;
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('발로란트 계정 정보 가져오기 실패:', error);
+    return null;
   }
 } 

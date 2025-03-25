@@ -1,7 +1,6 @@
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../config/firebase.js';
 import { valorantApi } from '../utils/valorantApi.js';
-import { createCanvas, loadImage, registerFont } from 'canvas';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { AttachmentBuilder } from 'discord.js';
