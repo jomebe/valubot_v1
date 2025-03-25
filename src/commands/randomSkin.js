@@ -51,7 +51,13 @@ export const randomSkinCommand = {
         // 팬텀 (Phantom)
         else if (['팬텀', 'phantom', '팬톰'].includes(weaponArg)) {
           weaponType = 'Phantom';
-        } else if (['오퍼', 'operator', '오페', '오퍼레이터'].includes(weaponArg)) {
+        } 
+        // 아웃로 (Outlaw)
+        else if (['아웃로', 'outlaw', '아웃로우'].includes(weaponArg)) {
+          weaponType = 'Outlaw';
+        }
+        // 나머지 무기들...
+        else if (['오퍼', 'operator', '오페', '오퍼레이터'].includes(weaponArg)) {
           weaponType = 'Operator';
         } else if (['셰리프', 'sheriff'].includes(weaponArg)) {
           weaponType = 'Sheriff';
@@ -91,6 +97,21 @@ export const randomSkinCommand = {
       
       if (!response.data || !response.data.data || response.data.data.length === 0) {
         return loadingMsg.edit('❌ 무기 정보를 가져오는데 실패했습니다. 나중에 다시 시도해주세요.');
+      }
+      
+      // 디버깅: 사용 가능한 모든 무기 이름 확인
+      console.log('사용 가능한 무기 목록:', response.data.data.map(weapon => weapon.displayName));
+      
+      // 아웃로 무기 확인
+      const outlawWeapon = response.data.data.find(weapon => 
+        weapon.displayName.includes('Outlaw') || 
+        weapon.displayName.toLowerCase().includes('outlaw')
+      );
+      
+      if (outlawWeapon) {
+        console.log('아웃로 무기 찾음:', outlawWeapon.displayName);
+      } else {
+        console.log('아웃로 무기를 찾을 수 없습니다.');
       }
       
       // 무기 데이터 필터링

@@ -20,6 +20,9 @@ import { compareCommand } from './commands/compare.js';
 import { recordCommand } from './commands/record.js';
 import { queueCommand, createTeamVoiceChannels } from './commands/queue.js';
 import { randomSkinCommand } from './commands/randomSkin.js';
+import { agentCommand } from './commands/agent.js';
+import { mapCommand } from './commands/map.js';
+import { weaponCommand } from './commands/weapon.js';
 
 // __dirname 설정 (ES 모듈에서 사용하기 위함)
 const __filename = fileURLToPath(import.meta.url);
@@ -126,6 +129,13 @@ const commands = new Map([
   ['ㅂ랜덤스킨', randomSkinCommand],
   ['ㅂㄹㄷㅅㅋ', randomSkinCommand],
   ['ㅂ스킨', randomSkinCommand],
+  ['ㅂ요원', agentCommand],
+  ['ㅂ에이전트', agentCommand],
+  ['ㅂㅇㅇ', agentCommand],
+  ['ㅂ맵', mapCommand],
+  ['ㅂㅁ', mapCommand],
+  ['ㅂ무기', weaponCommand],
+  ['ㅂㅁㄱ', weaponCommand],
 ]);
 
 client.on('ready', () => {
