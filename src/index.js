@@ -57,8 +57,8 @@ app.get('/', (req, res) => {
   res.send({
     status: 'online',
     timestamp: new Date().toISOString(),
-    botName: client.user?.tag || 'Valubot',
-    guilds: client.guilds.cache.size
+    botName: client?.user?.tag || 'Valubot',
+    guilds: client?.guilds?.cache.size || 0
   });
 });
 
@@ -82,6 +82,10 @@ app.get('/status', (req, res) => {
   });
 });
 
+// Express 서버를 즉시 시작 (Discord 봇 로그인 전에)
+app.listen(PORT, () => {
+  console.log(`서버가 포트 ${PORT}에서 실행 중입니다`);
+});
 
 // 디스코드 클라이언트 생성
 const client = new Client({
@@ -225,11 +229,6 @@ client.once('ready', async () => {
       guildSettings.set(guild.id, { ...DEFAULT_GUILD_SETTINGS });
     }
   }
-
-  // Express 서버 시작
-  app.listen(PORT, () => {
-    console.log(`서버가 포트 ${PORT}에서 실행 중입니다`);
-  });
 });
 
 // Discord 봇 로그인
