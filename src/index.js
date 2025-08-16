@@ -29,7 +29,16 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 // 환경변수 설정 (.env 파일 경로 지정)
-dotenv.config({ path: join(__dirname, '../.env') });
+// Render에서는 환경변수가 시스템에서 제공되므로 .env 파일이 없어도 됨
+const envPath = join(__dirname, '../.env');
+console.log('env 파일 경로 시도:', envPath);
+
+try {
+  dotenv.config({ path: envPath });
+  console.log('env 파일 로드 시도 완료');
+} catch (envError) {
+  console.log('env 파일 로드 실패 (시스템 환경변수 사용):', envError.message);
+}
 
 // 환경 변수 로드 확인
 console.log('환경 변수 파일 경로:', join(__dirname, '../.env'));
@@ -157,11 +166,17 @@ client.on('messageCreate', async (message) => {
   const command = commands.get(commandName);
   if (command) {
     try {
-      console.log(`명령어 실행: ${commandName}`); // 디버깅용 로그
+      console.log(`명령어 실행 시작: ${commandName}, 사용자: ${message.author.tag}, 서버: ${message.guild?.name}`);
       await command.execute(message, args.slice(1));
+      console.log(`명령어 실행 완료: ${commandName}`);
     } catch (error) {
-      console.error('명령어 실행 중 오류:', error);
-      message.reply('❌ 명령어 실행 중 오류가 발생했습니다.');
+      console.error(`명령어 실행 중 오류 (${commandName}):`, error);
+      console.error('오류 스택:', error.stack);
+      try {
+        await message.reply('❌ 명령어 실행 중 오류가 발생했습니다.');
+      } catch (replyError) {
+        console.error('응답 전송 실패:', replyError);
+      }
     }
   }
 });
