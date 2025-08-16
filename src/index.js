@@ -155,6 +155,22 @@ client.on('ready', () => {
   console.log(`봇이 준비되었습니다: ${client.user.tag}`);
 });
 
+// Discord 클라이언트 에러 핸들링
+client.on('error', (error) => {
+  console.error('Discord 클라이언트 오류:', error);
+});
+
+client.on('warn', (warning) => {
+  console.warn('Discord 클라이언트 경고:', warning);
+});
+
+client.on('debug', (info) => {
+  // 너무 많은 로그를 방지하기 위해 중요한 것만 로깅
+  if (info.includes('login') || info.includes('ready') || info.includes('error')) {
+    console.log('Discord 디버그:', info);
+  }
+});
+
 client.on('messageCreate', async (message) => {
   if (message.author.bot) return;
   
@@ -247,9 +263,19 @@ client.once('ready', async () => {
 });
 
 // Discord 봇 로그인
-client.login(process.env.DISCORD_TOKEN).catch(err => {
-  console.error('Discord 봇 로그인 실패:', err);
-});
+console.log('Discord 봇 로그인 시도 중...');
+console.log('Discord 토큰 존재 여부:', !!process.env.DISCORD_TOKEN);
+console.log('Discord 토큰 길이:', process.env.DISCORD_TOKEN ? process.env.DISCORD_TOKEN.length : 0);
+
+client.login(process.env.DISCORD_TOKEN)
+  .then(() => {
+    console.log('Discord 봇 로그인 성공!');
+  })
+  .catch(err => {
+    console.error('Discord 봇 로그인 실패:', err);
+    console.error('로그인 오류 상세:', err.message);
+    process.exit(1); // 로그인 실패시 프로세스 종료
+  });
 
 // Discord 봇 로그인 위에 추가
 client.on('interactionCreate', async (interaction) => {
