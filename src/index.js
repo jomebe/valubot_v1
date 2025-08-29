@@ -33,11 +33,16 @@ const __dirname = dirname(__filename);
 const envPath = join(__dirname, '../.env');
 console.log('env 파일 경로 시도:', envPath);
 
-try {
-  dotenv.config({ path: envPath });
-  console.log('env 파일 로드 시도 완료');
-} catch (envError) {
-  console.log('env 파일 로드 실패 (시스템 환경변수 사용):', envError.message);
+// 개발 환경에서만 .env 파일 로드 시도
+if (process.env.NODE_ENV !== 'production') {
+  try {
+    dotenv.config({ path: envPath });
+    console.log('개발 환경: env 파일 로드 시도 완료');
+  } catch (envError) {
+    console.log('개발 환경: env 파일 로드 실패:', envError.message);
+  }
+} else {
+  console.log('프로덕션 환경: 시스템 환경변수 사용');
 }
 
 // 환경 변수 로드 확인
@@ -97,6 +102,7 @@ app.listen(PORT, () => {
 });
 
 // 디스코드 클라이언트 생성
+console.log('Discord 클라이언트 생성 중...');
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -108,6 +114,7 @@ const client = new Client({
     GatewayIntentBits.GuildVoiceStates
   ]
 });
+console.log('Discord 클라이언트 생성 완료');
 
 // 발로란트 계정 저장소
 const valorantAccounts = new Map();
@@ -266,14 +273,31 @@ client.once('ready', async () => {
 console.log('Discord 봇 로그인 시도 중...');
 console.log('Discord 토큰 존재 여부:', !!process.env.DISCORD_TOKEN);
 console.log('Discord 토큰 길이:', process.env.DISCORD_TOKEN ? process.env.DISCORD_TOKEN.length : 0);
+console.log('Discord 토큰 시작 부분:', process.env.DISCORD_TOKEN ? process.env.DISCORD_TOKEN.substring(0, 20) + '...' : 'NULL');
+
+// Render 환경변수 직접 확인
+console.log('모든 환경변수 중 DISCORD 관련:');
+Object.keys(process.env).filter(key => key.includes('DISCORD')).forEach(key => {
+  console.log(`${key}: ${process.env[key] ? '설정됨 (' + process.env[key].length + '자)' : '미설정'}`);
+});
+
+// 로그인 타임아웃 설정 (30초)
+const loginTimeout = setTimeout(() => {
+  console.error('Discord 봇 로그인 타임아웃 (30초 경과)');
+  console.error('가능한 원인: 네트워크 연결 문제, 잘못된 토큰, Discord API 문제');
+  process.exit(1);
+}, 30000);
 
 client.login(process.env.DISCORD_TOKEN)
   .then(() => {
+    clearTimeout(loginTimeout);
     console.log('Discord 봇 로그인 성공!');
   })
   .catch(err => {
+    clearTimeout(loginTimeout);
     console.error('Discord 봇 로그인 실패:', err);
     console.error('로그인 오류 상세:', err.message);
+    console.error('오류 코드:', err.code);
     process.exit(1); // 로그인 실패시 프로세스 종료
   });
 
