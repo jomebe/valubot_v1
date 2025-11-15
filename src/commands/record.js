@@ -84,7 +84,20 @@ export const recordCommand = {
         }
       );
 
-      const matches = matchesResponse.data.data;
+      const allMatches = matchesResponse.data.data;
+      
+      // 경쟁전만 필터링 (Competitive 모드만)
+      const matches = allMatches.filter(match => 
+        match.metadata.mode === 'Competitive'
+      );
+
+      // 경쟁전이 없는 경우
+      if (matches.length === 0) {
+        return loadingMsg.edit({
+          content: '❌ 최근 5게임 중 경쟁전 기록이 없습니다.',
+          embeds: []
+        });
+      }
 
       // 매치 정보를 처리하여 통계 계산
       let totalKills = 0;
@@ -162,7 +175,7 @@ export const recordCommand = {
       const avgDamage = totalRounds > 0 ? Math.round(totalDamage / totalRounds) : 0;
       const winRate = matches.length > 0 ? Math.round((winCount / matches.length) * 100) : 0;
 
-      // 최근 5경기 요약 문자열 생성
+      // 최근 경기 요약 문자열 생성
       let recentMatchesText = matchSummaries.map((match, idx) => {
         const formattedDate = match.date.toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' });
         return `${idx+1}. [${match.result}] ${match.agent} - ${match.map} (${match.kda}) ${formattedDate}`;
@@ -197,12 +210,12 @@ export const recordCommand = {
             inline: true
           },
           {
-            name: '📜 최근 5경기',
+            name: `📜 최근 ${matches.length}경기`,
             value: recentMatchesText || '최근 경기 정보 없음'
           }
         ],
         footer: {
-          text: '최근 5게임 기준 통계'
+          text: `경쟁전 ${matches.length}게임 기준 통계 • 경쟁전만`
         },
         timestamp: new Date()
       };
