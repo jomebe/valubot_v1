@@ -3,18 +3,43 @@ import { db } from '../config/firebase.js';
 import axios from 'axios';
 
 const getRankIcon = (tier) => {
-  const rankIcons = {
-    'Iron': 'https://media.valorant-api.com/competitivetiers/03621f52-342b-cf4e-4f86-9350a49c6d04/3/largeicon.png',
-    'Bronze': 'https://media.valorant-api.com/competitivetiers/03621f52-342b-cf4e-4f86-9350a49c6d04/6/largeicon.png',
-    'Silver': 'https://media.valorant-api.com/competitivetiers/03621f52-342b-cf4e-4f86-9350a49c6d04/9/largeicon.png',
-    'Gold': 'https://media.valorant-api.com/competitivetiers/03621f52-342b-cf4e-4f86-9350a49c6d04/12/largeicon.png',
-    'Platinum': 'https://media.valorant-api.com/competitivetiers/03621f52-342b-cf4e-4f86-9350a49c6d04/15/largeicon.png',
-    'Diamond': 'https://media.valorant-api.com/competitivetiers/03621f52-342b-cf4e-4f86-9350a49c6d04/18/largeicon.png',
-    'Ascendant': 'https://media.valorant-api.com/competitivetiers/03621f52-342b-cf4e-4f86-9350a49c6d04/21/largeicon.png',
-    'Immortal': 'https://media.valorant-api.com/competitivetiers/03621f52-342b-cf4e-4f86-9350a49c6d04/24/largeicon.png',
-    'Radiant': 'https://media.valorant-api.com/competitivetiers/03621f52-342b-cf4e-4f86-9350a49c6d04/25/largeicon.png'
+  // 티어 이름과 숫자를 분리
+  const [rankName, rankNumber] = tier.split(' ');
+  
+  // 티어별 시작 인덱스 (각 티어는 3개씩: 1, 2, 3)
+  const tierBaseIndex = {
+    'Iron': 3,
+    'Bronze': 6,
+    'Silver': 9,
+    'Gold': 12,
+    'Platinum': 15,
+    'Diamond': 18,
+    'Ascendant': 21,
+    'Immortal': 24,
+    'Radiant': 27
   };
-  return rankIcons[tier] || 'https://i.imgur.com/G53MXS3.png';
+  
+  // 기본 인덱스 가져오기
+  const baseIndex = tierBaseIndex[rankName];
+  if (!baseIndex) return 'https://i.imgur.com/G53MXS3.png';
+  
+  // Radiant는 숫자가 없음
+  if (rankName === 'Radiant') {
+    return `https://media.valorant-api.com/competitivetiers/03621f52-342b-cf4e-4f86-9350a49c6d04/27/largeicon.png`;
+  }
+  
+  // Immortal은 1, 2, 3만 있음
+  if (rankName === 'Immortal') {
+    const num = rankNumber ? parseInt(rankNumber) : 1;
+    const immortalIndex = 24 + (num - 1);
+    return `https://media.valorant-api.com/competitivetiers/03621f52-342b-cf4e-4f86-9350a49c6d04/${immortalIndex}/largeicon.png`;
+  }
+  
+  // 다른 티어들은 1, 2, 3 숫자로 계산
+  const num = rankNumber ? parseInt(rankNumber) : 1;
+  const finalIndex = baseIndex + (num - 1);
+  
+  return `https://media.valorant-api.com/competitivetiers/03621f52-342b-cf4e-4f86-9350a49c6d04/${finalIndex}/largeicon.png`;
 };
 
 export const tierCommand = {
@@ -86,7 +111,7 @@ export const tierCommand = {
         color: 0xFF4654,
         title: `${name}#${tag}님의 티어 정보`,
         thumbnail: {
-          url: getRankIcon(rankOnly)
+          url: getRankIcon(currentTier)
         },
         fields: [
           {
