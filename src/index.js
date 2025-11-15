@@ -23,6 +23,7 @@ import { randomSkinCommand } from './commands/randomSkin.js';
 import { agentCommand } from './commands/agent.js';
 import { mapCommand } from './commands/map.js';
 import { weaponCommand } from './commands/weapon.js';
+import { premierCommand } from './commands/premier.js';
 
 // __dirname 설정 (ES 모듈에서 사용하기 위함)
 const __filename = fileURLToPath(import.meta.url);
@@ -156,6 +157,8 @@ const commands = new Map([
   ['ㅂㅁ', mapCommand],
   ['ㅂ무기', weaponCommand],
   ['ㅂㅁㄱ', weaponCommand],
+  ['ㅂ프리미어', premierCommand],
+  ['ㅂ프리미어팀', premierCommand],
 ]);
 
 client.on('ready', () => {
