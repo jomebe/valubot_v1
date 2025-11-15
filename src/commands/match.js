@@ -119,6 +119,12 @@ export const matchCommand = {
         ((player.stats.kills + player.stats.assists) / player.stats.deaths).toFixed(2) : 
         'Perfect';
 
+      // 정확도 계산 (헤드샷, 바디샷, 레그샷 비율)
+      const totalShots = player.stats.headshots + player.stats.bodyshots + player.stats.legshots;
+      const headshotPercent = totalShots > 0 ? Math.round((player.stats.headshots / totalShots) * 100) : 0;
+      const bodyshotPercent = totalShots > 0 ? Math.round((player.stats.bodyshots / totalShots) * 100) : 0;
+      const legshotPercent = totalShots > 0 ? Math.round((player.stats.legshots / totalShots) * 100) : 0;
+
       const embed = {
         color: teamWon ? 0x57F287 : 0xED4245,
         title: `${teamWon ? '🎉 승리' : '😢 패배'} - ${mapName}`,
@@ -138,7 +144,7 @@ export const matchCommand = {
           },
           {
             name: '🎯 정확도',
-            value: `헤드샷: ${player.stats.headshots}%\n바디샷: ${player.stats.bodyshots}%\n레그샷: ${player.stats.legshots}%`,
+            value: `헤드샷: ${headshotPercent}%\n바디샷: ${bodyshotPercent}%\n레그샷: ${legshotPercent}%`,
             inline: true
           }
         ],
