@@ -25,6 +25,10 @@ import { mapCommand } from './commands/map.js';
 import { weaponCommand } from './commands/weapon.js';
 import { premierCommand } from './commands/premier.js';
 
+// 로그인/상점 명령어 (Riot 내부 API 사용)
+import { loginCommand, logoutCommand, handleLoginCancel } from './commands/login.js';
+import { storeCommand, handleStoreRefresh, handleWalletDetail } from './commands/store.js';
+
 // __dirname 설정 (ES 모듈에서 사용하기 위함)
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -46,22 +50,10 @@ if (process.env.NODE_ENV !== 'production') {
   console.log('프로덕션 환경: 시스템 환경변수 사용');
 }
 
-// 환경 변수 로드 확인
-console.log('환경 변수 파일 경로:', join(__dirname, '../.env'));
-console.log('환경 변수 로드 상태:');
-[
-  'DISCORD_TOKEN',
-  'FIREBASE_API_KEY',
-  'FIREBASE_AUTH_DOMAIN',
-  'FIREBASE_PROJECT_ID'
-].forEach(key => {
-  console.log(`${key}: ${process.env[key] ? '설정됨' : '미설정'}`);
-});
-
-// 토큰 확인 로그
-console.log('Token loaded:', process.env.DISCORD_TOKEN ? '토큰이 있습니다' : '토큰이 없습니다');
-console.log('현재 작업 디렉토리:', process.cwd());
-console.log('env 파일 경로:', join(__dirname, '../.env'));
+// 환경 변수 로드 확인 (프로덕션에서는 최소 로깅)
+if (process.env.NODE_ENV !== 'production') {
+  console.log('환경 변수 로드 상태:', process.env.DISCORD_TOKEN ? 'OK' : 'MISSING');
+}
 
 // Express 서버 설정
 const app = express();
@@ -102,20 +94,29 @@ app.listen(PORT, () => {
   console.log(`서버가 포트 ${PORT}에서 실행 중입니다`);
 });
 
-// 디스코드 클라이언트 생성
-console.log('Discord 클라이언트 생성 중...');
+// 디스코드 클라이언트 생성 (리소스 최적화: 필수 Intent만 사용)
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent,
-    GatewayIntentBits.GuildMembers,
-    GatewayIntentBits.GuildPresences,
-    GatewayIntentBits.GuildMessageReactions,
-    GatewayIntentBits.GuildVoiceStates
-  ]
+    GatewayIntentBits.GuildVoiceStates  // 선착순 기능용
+  ],
+  // 리소스 최적화 옵션
+  sweepers: {
+    messages: {
+      interval: 300, // 5분마다 오래된 메시지 캐시 정리
+      lifetime: 600  // 10분 이상 된 메시지 제거
+    },
+    users: {
+      interval: 600, // 10분마다 사용자 캐시 정리
+      filter: () => user => user.bot && user.id !== client.user?.id
+    }
+  },
+  rest: {
+    timeout: 15000 // API 타임아웃 15초
+  }
 });
-console.log('Discord 클라이언트 생성 완료');
 
 // 발로란트 계정 저장소
 const valorantAccounts = new Map();
@@ -159,27 +160,20 @@ const commands = new Map([
   ['ㅂㅁㄱ', weaponCommand],
   ['ㅂ프리미어', premierCommand],
   ['ㅂ프리미어팀', premierCommand],
+  // 로그인/상점 명령어 (Riot 내부 API)
+  // 주의: 개인 학습/연구 목적으로만 사용
+  ['ㅂ로그인', { execute: loginCommand }],
+  ['ㅂ로그아웃', { execute: logoutCommand }],
+  ['ㅂ상점', { execute: storeCommand }],
+  ['ㅂ내상점', { execute: storeCommand }],
 ]);
 
-client.on('ready', () => {
-  console.log(`봇이 준비되었습니다: ${client.user.tag}`);
-});
-
-// Discord 클라이언트 에러 핸들링
+// Discord 클라이언트 에러 핸들링 (중요한 오류만)
 client.on('error', (error) => {
-  console.error('Discord 클라이언트 오류:', error);
+  console.error('Discord 오류:', error.message);
 });
 
-client.on('warn', (warning) => {
-  console.warn('Discord 클라이언트 경고:', warning);
-});
-
-client.on('debug', (info) => {
-  // 너무 많은 로그를 방지하기 위해 중요한 것만 로깅
-  if (info.includes('login') || info.includes('ready') || info.includes('error')) {
-    console.log('Discord 디버그:', info);
-  }
-});
+// 디버그/경고 이벤트 비활성화 (리소스 절약)
 
 client.on('messageCreate', async (message) => {
   if (message.author.bot) return;
@@ -192,9 +186,7 @@ client.on('messageCreate', async (message) => {
   const command = commands.get(commandName);
   if (command) {
     try {
-      console.log(`명령어 실행 시작: ${commandName}, 사용자: ${message.author.tag}, 서버: ${message.guild?.name}`);
       await command.execute(message, args.slice(1));
-      console.log(`명령어 실행 완료: ${commandName}`);
     } catch (error) {
       console.error(`명령어 실행 중 오류 (${commandName}):`, error);
       console.error('오류 스택:', error.stack);
@@ -242,26 +234,21 @@ client.on('guildDelete', (guild) => {
 
 // 봇 시작 시 모든 서버의 설정 로드
 client.once('ready', async () => {
-  console.log(`봇이 준비되었습니다: ${client.user.tag}`);
+  console.log(`봇 준비 완료: ${client.user.tag} (${client.guilds.cache.size}개 서버)`);
   
   try {
-    // 모든 서버의 설정 로드
+    // 모든 서버의 설정 로드 (로깅 최소화)
     for (const guild of client.guilds.cache.values()) {
       try {
         const settings = await loadGuildSettings(guild.id);
         guildSettings.set(guild.id, settings);
-        console.log(`서버 설정 로드 완료: ${guild.name} (${guild.id})`);
       } catch (guildError) {
-        console.error(`서버 설정 로드 실패 (${guild.id}):`, guildError);
         // 실패한 서버는 기본 설정 사용
         guildSettings.set(guild.id, { ...DEFAULT_GUILD_SETTINGS });
       }
     }
-    
-    console.log(`${client.guilds.cache.size}개 서버의 설정 로드 시도 완료`);
-    
   } catch (error) {
-    console.error('서버 설정 로드 중 오류:', error);
+    // 오류 시 기본 설정 사용
   }
   
   // 봇이 오프라인이어도 작동할 수 있도록 기본 설정 확인
@@ -274,15 +261,6 @@ client.once('ready', async () => {
 
 // Discord 봇 로그인
 console.log('Discord 봇 로그인 시도 중...');
-console.log('Discord 토큰 존재 여부:', !!process.env.DISCORD_TOKEN);
-console.log('Discord 토큰 길이:', process.env.DISCORD_TOKEN ? process.env.DISCORD_TOKEN.length : 0);
-console.log('Discord 토큰 시작 부분:', process.env.DISCORD_TOKEN ? process.env.DISCORD_TOKEN.substring(0, 20) + '...' : 'NULL');
-
-// Render 환경변수 직접 확인
-console.log('모든 환경변수 중 DISCORD 관련:');
-Object.keys(process.env).filter(key => key.includes('DISCORD')).forEach(key => {
-  console.log(`${key}: ${process.env[key] ? '설정됨 (' + process.env[key].length + '자)' : '미설정'}`);
-});
 
 // 로그인 타임아웃 설정 (30초)
 const loginTimeout = setTimeout(() => {
@@ -308,19 +286,35 @@ client.login(process.env.DISCORD_TOKEN)
 client.on('interactionCreate', async (interaction) => {
   if (!interaction.isButton()) return;
   
+  const customId = interaction.customId;
+  
+  // 로그인 취소 버튼
+  if (customId.startsWith('login_cancel_')) {
+    return handleLoginCancel(interaction);
+  }
+  
+  // 상점 새로고침 버튼
+  if (customId.startsWith('store_refresh_')) {
+    return handleStoreRefresh(interaction);
+  }
+  
+  // 지갑 상세 버튼
+  if (customId.startsWith('store_wallet_')) {
+    return handleWalletDetail(interaction);
+  }
+  
   if (interaction.customId === 'show_random_skins') {
     // 이 부분 전체 삭제
   }
 });
 
-// 새로운 자동 핑 코드 추가
+// Keep-alive 핑 (14분마다 - Render 무료 티어 15분 sleep 방지, 리소스 절약)
 setInterval(async () => {
   try {
-    // 외부 URL로 직접 핑 요청 보내기
     const pingUrl = process.env.RENDER_EXTERNAL_URL || 'http://localhost:10000';
-    const response = await axios.get(`${pingUrl}/keep-alive`);
-    console.log('Keep-alive ping 성공:', response.data);
+    await axios.get(`${pingUrl}/keep-alive`, { timeout: 5000 });
+    // 로그 최소화로 리소스 절약
   } catch (error) {
-    console.error('Keep-alive ping 실패:', error.message);
+    // 실패해도 무시 (다음 핑에서 복구됨)
   }
-}, 5 * 60 * 1000); // 5분마다 실행 
+}, 14 * 60 * 1000); // 14분마다 실행 (기존 5분 -> 14분으로 변경) 

@@ -1,37 +1,11 @@
 import express from 'express';
-import axios from 'axios';
+
+// 리소스 최적화: 이 파일의 setupExpressServer는 사용하지 않음
+// index.js에서 직접 Express 서버를 구성함
+// Keep-alive ping도 index.js에서 14분 간격으로 실행 중
 
 export function setupExpressServer() {
-  const app = express();
-  const PORT = process.env.PORT || 3000;
-
-  app.get('/', (req, res) => {
-    res.json({
-      status: 'online',
-      uptime: process.uptime(),
-      lastPing: new Date().toISOString()
-    });
-  });
-
-  app.get('/keep-alive', (req, res) => {
-    res.json({ status: 'alive', timestamp: new Date().toISOString() });
-  });
-
-  app.listen(PORT, '0.0.0.0', (err) => {
-    if (err) {
-      console.error('서버 시작 실패:', err);
-      return;
-    }
-    console.log(`서버가 포트 ${PORT}에서 실행 중입니다`);
-  });
-
-  // Keep-alive ping
-  setInterval(async () => {
-    try {
-      const response = await axios.get(`${process.env.RENDER_EXTERNAL_URL}/keep-alive`);
-      console.log('Keep-alive ping 성공:', response.data);
-    } catch (error) {
-      console.error('Keep-alive ping 실패:', error);
-    }
-  }, 10 * 60 * 1000);
+  // 이 함수는 더 이상 사용되지 않음 (리소스 최적화)
+  // index.js에서 직접 Express 서버 관리
+  console.log('setupExpressServer는 비활성화됨 - index.js에서 관리');
 } 

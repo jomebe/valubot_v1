@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-// API 응답 캐시
+// API 응답 캐시 (리소스 최적화)
 const cache = {
   accounts: new Map(),
   mmr: new Map(),
@@ -9,8 +9,22 @@ const cache = {
   tiers: null    // 티어 정보 캐시
 };
 
-// 캐시 유효 시간 (5분)
-const CACHE_DURATION = 5 * 60 * 1000;
+// 캐시 유효 시간 (15분 - 기존 5분에서 증가)
+const CACHE_DURATION = 15 * 60 * 1000;
+
+// 캐시 최대 크기 (메모리 관리)
+const MAX_CACHE_SIZE = 100;
+
+// 캐시 정리 함수 (리소스 관리)
+function cleanupCache(cacheMap) {
+  if (cacheMap.size > MAX_CACHE_SIZE) {
+    const entries = Array.from(cacheMap.entries());
+    // 가장 오래된 항목 절반 삭제
+    entries.slice(0, Math.floor(MAX_CACHE_SIZE / 2)).forEach(([key]) => {
+      cacheMap.delete(key);
+    });
+  }
+}
 
 // API 호출 함수들
 export const valorantApi = {
@@ -23,6 +37,9 @@ export const valorantApi = {
       if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
         return cached.data;
       }
+
+      // 캐시 정리 (메모리 관리)
+      cleanupCache(cache.accounts);
 
       const response = await axios.get(
         `https://api.henrikdev.xyz/valorant/v1/account/${encodeURIComponent(name)}/${encodeURIComponent(tag)}`,
@@ -75,6 +92,9 @@ export const valorantApi = {
       return cached.data;
     }
 
+    // 캐시 정리 (메모리 관리)
+    cleanupCache(cache.mmr);
+
     const response = await axios.get(
       `https://api.henrikdev.xyz/valorant/v2/by-puuid/mmr/${region}/${puuid}`,
       { headers: { 'Authorization': process.env.VALORANT_API_KEY } }
@@ -97,6 +117,9 @@ export const valorantApi = {
     if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
       return cached.data;
     }
+
+    // 캐시 정리 (메모리 관리)
+    cleanupCache(cache.matches);
 
     const response = await axios.get(
       `https://api.henrikdev.xyz/valorant/v3/matches/${region}/${encodeURIComponent(name)}/${encodeURIComponent(tag)}?size=${size}`,
