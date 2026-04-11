@@ -1,7 +1,7 @@
 import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-import { Client, GatewayIntentBits, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
+import { Client, GatewayIntentBits, ActionRowBuilder, ButtonBuilder, ButtonStyle, Partials, SlashCommandBuilder } from 'discord.js';
 import express from 'express';
 import axios from 'axios';
 import { helpCommand } from './commands/help.js';
@@ -24,9 +24,10 @@ import { agentCommand } from './commands/agent.js';
 import { mapCommand } from './commands/map.js';
 import { weaponCommand } from './commands/weapon.js';
 import { premierCommand } from './commands/premier.js';
+import { esportsCommand } from './commands/esports.js';
 
 // 로그인/상점 명령어 (Riot 내부 API 사용)
-import { loginCommand, logoutCommand, handleLoginCancel } from './commands/login.js';
+import { logoutCommand, handleLoginCancel } from './commands/login.js';
 import { storeCommand, handleStoreRefresh, handleWalletDetail } from './commands/store.js';
 
 // __dirname 설정 (ES 모듈에서 사용하기 위함)
@@ -100,7 +101,13 @@ const client = new Client({
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent,
+    GatewayIntentBits.GuildMessageReactions,  // 선착순 반응 이모지용
     GatewayIntentBits.GuildVoiceStates  // 선착순 기능용
+  ],
+  partials: [
+    Partials.Message,
+    Partials.Channel,
+    Partials.Reaction  // 캐시되지 않은 메시지의 반응 처리용
   ],
   // 리소스 최적화 옵션
   sweepers: {
@@ -160,13 +167,276 @@ const commands = new Map([
   ['ㅂㅁㄱ', weaponCommand],
   ['ㅂ프리미어', premierCommand],
   ['ㅂ프리미어팀', premierCommand],
+  ['ㅂ이스포츠', esportsCommand],
+  ['ㅂ대회', esportsCommand],
+  ['ㅂesports', esportsCommand],
   // 로그인/상점 명령어 (Riot 내부 API)
   // 주의: 개인 학습/연구 목적으로만 사용
-  ['ㅂ로그인', { execute: loginCommand }],
   ['ㅂ로그아웃', { execute: logoutCommand }],
   ['ㅂ상점', { execute: storeCommand }],
   ['ㅂ내상점', { execute: storeCommand }],
 ]);
+
+const SLASH_COMMAND_CONFIGS = [
+  { name: '도움', legacy: 'ㅂ도움', description: '발루봇 도움말을 확인합니다.' },
+  { name: '발로등록', legacy: 'ㅂ발로등록', description: '발로란트 계정을 등록합니다.', optionType: 'register' },
+  { name: '발로삭제', legacy: 'ㅂ발로삭제', description: '등록된 발로란트 계정을 삭제합니다.' },
+  { name: '전적', legacy: 'ㅂ전적', description: '발로란트 전적을 확인합니다.', optionType: 'riotIdOptional' },
+  { name: '발로', legacy: 'ㅂ발로', description: '등록된 계정 또는 입력 계정의 프로필을 조회합니다.', optionType: 'riotIdOptional' },
+  { name: '랜덤맵', legacy: 'ㅂ랜덤맵', description: '무작위 발로란트 맵을 뽑습니다.' },
+  { name: '통계', legacy: 'ㅂ통계', description: '최근 경기 통계를 확인합니다.', optionType: 'riotIdOptional' },
+  { name: '타임아웃', legacy: 'ㅂ타임아웃', description: '관리자 전용 타임아웃을 실행합니다.', optionType: 'timeout' },
+  { name: '매치', legacy: 'ㅂ매치', description: '최근 매치 정보를 확인합니다.', optionType: 'riotIdOptional' },
+  { name: '티어', legacy: 'ㅂ티어', description: '현재 티어를 확인합니다.', optionType: 'riotIdOptional' },
+  { name: '리더보드', legacy: 'ㅂ리더보드', description: '서버 내 티어 랭킹을 확인합니다.' },
+  { name: '비교', legacy: 'ㅂ비교', description: '두 플레이어의 전적을 비교합니다.', optionType: 'compare' },
+  { name: '선착', legacy: 'ㅂ선착', description: '선착순을 생성합니다.', optionType: 'queue' },
+  { name: '선착현황', legacy: 'ㅂ선착현황', description: '현재 선착순 상태를 확인합니다.' },
+  { name: '선착취소', legacy: 'ㅂ선착취소', description: '진행 중인 선착순을 취소합니다.' },
+  { name: '선착멘션', legacy: 'ㅂ선착멘션', description: '선착순 참가자를 멘션합니다.' },
+  { name: '랜덤스킨', legacy: 'ㅂ랜덤스킨', description: '무작위 스킨을 선택합니다.', optionType: 'skin' },
+  { name: '요원', legacy: 'ㅂ요원', description: '요원 정보를 조회합니다.', optionType: 'agent' },
+  { name: '맵', legacy: 'ㅂ맵', description: '맵 정보를 조회합니다.', optionType: 'map' },
+  { name: '무기', legacy: 'ㅂ무기', description: '무기 정보를 조회합니다.', optionType: 'weapon' },
+  { name: '프리미어', legacy: 'ㅂ프리미어', description: '프리미어 정보를 확인합니다.', optionType: 'premier' },
+  { name: '이스포츠', legacy: 'ㅂ이스포츠', description: '이스포츠 관련 정보를 확인합니다.', optionType: 'esports' },
+  { name: '상점', legacy: 'ㅂ상점', description: '상점 정보를 조회합니다.' },
+];
+
+const slashCommandMap = new Map(
+  SLASH_COMMAND_CONFIGS.map((config) => [config.name, config])
+);
+
+const slashCommandPayload = SLASH_COMMAND_CONFIGS.map((config) => {
+  const builder = new SlashCommandBuilder()
+    .setName(config.name)
+    .setDescription(config.description);
+
+  switch (config.optionType) {
+    case 'register':
+      builder
+        .addStringOption((option) =>
+          option
+            .setName('riot_id')
+            .setDescription('등록할 닉네임#태그 (예: ddong#2262)')
+            .setRequired(true)
+        )
+        .addUserOption((option) =>
+          option
+            .setName('target_user')
+            .setDescription('관리자용 대상 사용자 (선택)')
+            .setRequired(false)
+        );
+      break;
+    case 'riotIdOptional':
+      builder.addStringOption((option) =>
+        option
+          .setName('riot_id')
+          .setDescription('조회할 닉네임#태그 (비우면 내 등록 계정)')
+          .setRequired(false)
+      );
+      break;
+    case 'timeout':
+      builder
+        .addUserOption((option) =>
+          option
+            .setName('대상유저')
+            .setDescription('타임아웃할 유저')
+            .setRequired(true)
+        )
+        .addIntegerOption((option) =>
+          option
+            .setName('시간')
+            .setDescription('타임아웃 시간(분, 1~60)')
+            .setMinValue(1)
+            .setMaxValue(60)
+            .setRequired(true)
+        );
+      break;
+    case 'compare':
+      builder
+        .addStringOption((option) =>
+          option
+            .setName('상대')
+            .setDescription('비교할 상대 닉네임#태그')
+            .setRequired(true)
+        )
+        .addStringOption((option) =>
+          option
+            .setName('내계정')
+            .setDescription('내 닉네임#태그 (비우면 등록 계정 사용)')
+            .setRequired(false)
+        );
+      break;
+    case 'queue':
+      builder
+        .addIntegerOption((option) =>
+          option
+            .setName('인원수')
+            .setDescription('모집 인원 수 (2~101)')
+            .setMinValue(2)
+            .setMaxValue(101)
+            .setRequired(true)
+        )
+        .addStringOption((option) =>
+          option
+            .setName('제목')
+            .setDescription('선착순 제목 (예: 저녁배그)')
+            .setRequired(true)
+        )
+        .addStringOption((option) =>
+          option
+            .setName('멘션')
+            .setDescription('역할 멘션 사용 여부')
+            .addChoices(
+              { name: 'O (멘션 사용)', value: 'O' },
+              { name: 'X (멘션 없음)', value: 'X' }
+            )
+            .setRequired(false)
+        );
+      break;
+    case 'skin':
+      builder.addStringOption((option) =>
+        option
+          .setName('무기_또는_카테고리')
+          .setDescription('예: 밴달, 팬텀, 라이플, 권총 (비우면 전체 랜덤)')
+          .setRequired(false)
+      );
+      break;
+    case 'agent':
+      builder.addStringOption((option) =>
+        option
+          .setName('에이전트명')
+          .setDescription('예: 제트, 레이나, 오멘')
+          .setRequired(true)
+      );
+      break;
+    case 'map':
+      builder.addStringOption((option) =>
+        option
+          .setName('맵이름')
+          .setDescription('예: 어센트, 바인드, 헤이븐')
+          .setRequired(true)
+      );
+      break;
+    case 'weapon':
+      builder.addStringOption((option) =>
+        option
+          .setName('무기이름')
+          .setDescription('예: 밴달, 팬텀, 오퍼')
+          .setRequired(true)
+      );
+      break;
+    case 'premier':
+      builder
+        .addStringOption((option) =>
+          option
+            .setName('팀이름')
+            .setDescription('예: 다딱이들의모임')
+            .setRequired(true)
+        )
+        .addStringOption((option) =>
+          option
+            .setName('팀태그')
+            .setDescription('예: daddk')
+            .setRequired(true)
+        );
+      break;
+    case 'esports':
+      builder
+        .addStringOption((option) =>
+          option
+            .setName('종류')
+            .setDescription('실행할 이스포츠 명령')
+            .addChoices(
+              { name: '이벤트', value: '이벤트' },
+              { name: '팀', value: '팀' },
+              { name: '선수', value: '선수' },
+              { name: '매치', value: '매치' },
+              { name: '이벤트매치', value: '이벤트매치' }
+            )
+            .setRequired(true)
+        )
+        .addStringOption((option) =>
+          option
+            .setName('검색어')
+            .setDescription('팀/선수 이름 또는 ID, 매치ID/이벤트ID')
+            .setRequired(false)
+        )
+        .addStringOption((option) =>
+          option
+            .setName('세부')
+            .setDescription('팀/선수 명령의 세부 옵션')
+            .addChoices(
+              { name: '매치', value: '매치' },
+              { name: '이적', value: '이적' }
+            )
+            .setRequired(false)
+        );
+      break;
+    default:
+      break;
+  }
+
+  return builder.toJSON();
+});
+
+async function registerSlashCommands() {
+  try {
+    const registerPromises = [...client.guilds.cache.values()].map((guild) =>
+      guild.commands.set(slashCommandPayload)
+    );
+
+    await Promise.allSettled(registerPromises);
+    console.log(`슬래시 명령어 등록 완료: ${client.guilds.cache.size}개 서버`);
+  } catch (error) {
+    console.error('슬래시 명령어 등록 실패:', error);
+  }
+}
+
+function createSlashMessageAdapter(interaction, content, targetUser = null, targetMember = null) {
+  let repliedOnce = false;
+
+  const normalizeReplyPayload = (payload) => {
+    if (typeof payload === 'string') {
+      return { content: payload };
+    }
+
+    if (!payload || typeof payload !== 'object') {
+      return { content: String(payload ?? '') };
+    }
+
+    return payload;
+  };
+
+  return {
+    author: interaction.user,
+    member: interaction.member,
+    guild: interaction.guild,
+    channel: interaction.channel,
+    client: interaction.client,
+    content,
+    mentions: {
+      users: {
+        first: () => targetUser,
+      },
+      members: {
+        first: () => targetMember,
+      },
+    },
+    delete: async () => {},
+    reply: async (payload) => {
+      const normalized = normalizeReplyPayload(payload);
+
+      if (!interaction.replied && !interaction.deferred && !repliedOnce) {
+        repliedOnce = true;
+        return interaction.reply({ ...normalized, fetchReply: true });
+      }
+
+      return interaction.followUp({ ...normalized, fetchReply: true });
+    },
+  };
+}
 
 // Discord 클라이언트 에러 핸들링 (중요한 오류만)
 client.on('error', (error) => {
@@ -257,6 +527,9 @@ client.once('ready', async () => {
       guildSettings.set(guild.id, { ...DEFAULT_GUILD_SETTINGS });
     }
   }
+
+  // 슬래시 명령어 등록
+  await registerSlashCommands();
 });
 
 // Discord 봇 로그인
@@ -284,6 +557,121 @@ client.login(process.env.DISCORD_TOKEN)
 
 // Discord 봇 로그인 위에 추가
 client.on('interactionCreate', async (interaction) => {
+  if (interaction.isChatInputCommand()) {
+    const slashConfig = slashCommandMap.get(interaction.commandName);
+
+    if (!slashConfig) {
+      return;
+    }
+
+    let rawArgs = '';
+    let targetUser = null;
+    let targetMember = null;
+
+    switch (slashConfig.optionType) {
+      case 'register':
+        rawArgs = interaction.options.getString('riot_id', true).trim();
+        targetUser = interaction.options.getUser('target_user');
+        targetMember = targetUser ? interaction.guild?.members?.cache.get(targetUser.id) || null : null;
+        break;
+      case 'riotIdOptional':
+        rawArgs = interaction.options.getString('riot_id')?.trim() || '';
+        break;
+      case 'timeout': {
+        targetUser = interaction.options.getUser('대상유저', true);
+        targetMember = interaction.options.getMember('대상유저') || interaction.guild?.members?.cache.get(targetUser.id) || null;
+        if (!targetMember && interaction.guild) {
+          targetMember = await interaction.guild.members.fetch(targetUser.id).catch(() => null);
+        }
+        const duration = interaction.options.getInteger('시간', true);
+        rawArgs = `<@${targetUser.id}> ${duration}`;
+        break;
+      }
+      case 'compare': {
+        const opponentId = interaction.options.getString('상대', true).trim();
+        const myId = interaction.options.getString('내계정')?.trim() || '';
+        rawArgs = myId ? `${myId} ${opponentId}` : opponentId;
+        break;
+      }
+      case 'queue': {
+        const queueLimit = interaction.options.getInteger('인원수', true);
+        const queueTitle = interaction.options
+          .getString('제목', true)
+          .trim()
+          .replace(/\s+/g, ' ');
+        const queueMention = interaction.options.getString('멘션') || 'X';
+        rawArgs = `${queueLimit} ${queueTitle} ${queueMention}`;
+        break;
+      }
+      case 'skin':
+        rawArgs = interaction.options.getString('무기_또는_카테고리')?.trim() || '';
+        break;
+      case 'agent':
+        rawArgs = interaction.options.getString('에이전트명', true).trim();
+        break;
+      case 'map':
+        rawArgs = interaction.options.getString('맵이름', true).trim();
+        break;
+      case 'weapon':
+        rawArgs = interaction.options.getString('무기이름', true).trim();
+        break;
+      case 'premier': {
+        const teamName = interaction.options.getString('팀이름', true).trim();
+        const teamTag = interaction.options.getString('팀태그', true).trim();
+        rawArgs = `${teamName} ${teamTag}`;
+        break;
+      }
+      case 'esports': {
+        const kind = interaction.options.getString('종류', true).trim();
+        const keyword = interaction.options.getString('검색어')?.trim() || '';
+        const detail = interaction.options.getString('세부')?.trim() || '';
+        rawArgs = [kind, keyword, detail].filter(Boolean).join(' ');
+        break;
+      }
+      default:
+        rawArgs = '';
+        break;
+    }
+
+    const legacyCommandName = slashConfig.legacy;
+    const command = commands.get(legacyCommandName);
+
+    if (!command) {
+      await interaction.reply({
+        content: `❌ 아직 슬래시에서 지원하지 않는 명령어입니다: ${interaction.commandName}`,
+        ephemeral: true,
+      });
+      return;
+    }
+
+    const argText = targetUser
+      ? `<@${targetUser.id}>${rawArgs ? ` ${rawArgs}` : ''}`
+      : rawArgs;
+
+    const args = argText ? argText.split(/\s+/) : [];
+    const syntheticContent = `${legacyCommandName}${argText ? ` ${argText}` : ''}`;
+    const slashMessage = createSlashMessageAdapter(
+      interaction,
+      syntheticContent,
+      targetUser || null,
+      targetMember || null
+    );
+
+    try {
+      await command.execute(slashMessage, args);
+    } catch (error) {
+      console.error(`슬래시 명령어 실행 중 오류 (${legacyCommandName}):`, error);
+
+      if (interaction.replied || interaction.deferred) {
+        await interaction.followUp('❌ 슬래시 명령어 실행 중 오류가 발생했습니다.');
+      } else {
+        await interaction.reply('❌ 슬래시 명령어 실행 중 오류가 발생했습니다.');
+      }
+    }
+
+    return;
+  }
+
   if (!interaction.isButton()) return;
   
   const customId = interaction.customId;
