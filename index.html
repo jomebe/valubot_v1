@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>발루봇 법적 문서</title>
+  <style>
+    :root {
+      --bg: #0d1117;
+      --panel: #161b22;
+      --text: #e6edf3;
+      --muted: #9aa4b2;
+      --accent: #ff4654;
+      --line: #30363d;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "Noto Sans KR", "Segoe UI", Arial, sans-serif;
+      background: radial-gradient(circle at top, #1f2633 0%, var(--bg) 50%);
+      color: var(--text);
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+    }
+
+    .card {
+      width: min(760px, 100%);
+      background: color-mix(in oklab, var(--panel) 90%, black);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 28px;
+      box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+    }
+
+    h1 {
+      margin: 0 0 12px;
+      font-size: 30px;
+      line-height: 1.2;
+    }
+
+    p {
+      margin: 0 0 18px;
+      color: var(--muted);
+      line-height: 1.7;
+    }
+
+    .links {
+      display: grid;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    a {
+      display: block;
+      color: var(--text);
+      text-decoration: none;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 14px 16px;
+      transition: transform 0.18s ease, border-color 0.18s ease;
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    a:hover {
+      transform: translateY(-1px);
+      border-color: var(--accent);
+    }
+
+    .meta {
+      margin-top: 18px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    code {
+      color: #f8f8f2;
+      background: rgba(255, 255, 255, 0.06);
+      padding: 2px 6px;
+      border-radius: 6px;
+    }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <h1>발루봇 법적 문서</h1>
+    <p>
+      Discord 수익화 설정을 위한 문서 페이지입니다.
+      아래 링크를 Discord Developer Portal의 URL 필드에 입력해 사용하세요.
+    </p>
+
+    <section class="links">
+      <a href="./terms.html">이용 약관 (Terms of Service)</a>
+      <a href="./privacy.html">개인정보 처리방침 (Privacy Policy)</a>
+    </section>
+
+    <p class="meta">
+      앱 설정 입력 예시:<br />
+      이용 약관 URL: <code>https://jomebe.github.io/valubot_v1/terms.html</code><br />
+      개인정보 보호 정책 URL: <code>https://jomebe.github.io/valubot_v1/privacy.html</code>
+    </p>
+  </main>
+</body>
+</html>
