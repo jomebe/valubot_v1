@@ -165,7 +165,10 @@ function calculateStats(matches, playerName, playerTag) {
       stats.legshots += playerData.stats?.legshots || 0;
 
       // 승리 여부 확인
-      if (playerData.team?.toLowerCase() === match.teams?.winner?.toLowerCase()) {
+      const playerTeam = playerData.team?.toLowerCase();
+      const wonMatch = (playerTeam === 'red' && match.teams?.red?.has_won) || 
+                       (playerTeam === 'blue' && match.teams?.blue?.has_won);
+      if (wonMatch) {
         wins++;
       }
 
@@ -794,40 +797,105 @@ export const compareCommand = {
     try {
       let player1, player2;
 
+      const parseRiotId = (input) => {
+        if (!input || !input.includes('#')) return null;
+        const hashIndex = input.lastIndexOf('#');
+        if (hashIndex <= 0 || hashIndex >= input.length - 1) return null;
+
+        const name = input.slice(0, hashIndex).trim();
+        const tag = input.slice(hashIndex + 1).trim();
+        if (!name || !tag) return null;
+
+        return { name, tag };
+      };
+
+      const resolveByDiscordIdentity = async (input, guildData) => {
+        const mentionMatch = input.match(/^<@!?(\d+)>$/);
+        const mentionId = mentionMatch ? mentionMatch[1] : null;
+
+        let member = null;
+        if (mentionId) {
+          member = message.guild.members.cache.get(mentionId)
+            || await message.guild.members.fetch(mentionId).catch(() => null);
+        } else {
+          const normalized = input.replace(/^@/, '').toLowerCase();
+          member = message.guild.members.cache.find((m) =>
+            m.user.tag.toLowerCase() === normalized
+            || m.displayName.toLowerCase() === normalized
+            || m.user.username.toLowerCase() === normalized
+          ) || null;
+        }
+
+        if (!member) {
+          return null;
+        }
+
+        const registered = guildData[member.id];
+        if (!registered?.valorantName || !registered?.valorantTag) {
+          throw new Error(`❌ ${member.user.tag}님은 발로등록이 되어있지 않습니다.`);
+        }
+
+        return {
+          name: registered.valorantName,
+          tag: registered.valorantTag
+        };
+      };
+
+      const resolveCompareInput = async (input, guildData) => {
+        const riotId = parseRiotId(input);
+        if (riotId) {
+          return riotId;
+        }
+
+        const discordResolved = await resolveByDiscordIdentity(input, guildData);
+        if (discordResolved) {
+          return discordResolved;
+        }
+
+        throw new Error('❌ 올바른 형식이 아닙니다. (예: 닉네임#태그, @멘션, 디코닉네임)');
+      };
+
+      const usageGuide =
+        '❌ 비교할 플레이어를 입력해주세요.\n' +
+        '예시:\n' +
+        '`ㅂ비교 닉네임1#태그1 닉네임2#태그2`\n' +
+        '`ㅂ비교 @상대유저` (내 등록 계정 vs 상대 등록 계정)\n' +
+        '`ㅂ비교 내디코닉네임 @상대유저`';
+
+      const guildId = message.guild.id;
+      const docRef = doc(db, 'valorant_accounts', guildId);
+      const docSnap = await getDoc(docRef);
+      const guildData = docSnap.exists() ? docSnap.data() : {};
+
       // 인자 처리
       if (args.length === 0) {
-        return message.reply('❌ 비교할 플레이어를 입력해주세요. (예: ㅂ비교 닉네임1#태그1 닉네임2#태그2)');
+        return message.reply(usageGuide);
       } else if (args.length === 1) {
         // 첫 번째 플레이어는 명령어 사용자의 등록된 계정
-        const guildId = message.guild.id;
         const userId = message.author.id;
-        const docRef = doc(db, 'valorant_accounts', guildId);
-        const docSnap = await getDoc(docRef);
-
-        if (!docSnap.exists() || !docSnap.data()[userId]) {
+        if (!guildData[userId]) {
           return message.reply('❌ 등록된 계정이 없습니다. 두 플레이어의 닉네임을 모두 입력해주세요.');
         }
 
-        const userData = docSnap.data()[userId];
+        const userData = guildData[userId];
         player1 = {
           name: userData.valorantName,
           tag: userData.valorantTag
         };
 
-        if (!args[0].includes('#')) {
-          return message.reply('❌ 올바른 형식이 아닙니다. (예: 닉네임#태그)');
+        try {
+          player2 = await resolveCompareInput(args[0], guildData);
+        } catch (parseError) {
+          return message.reply(parseError.message || '❌ 상대 플레이어 입력이 올바르지 않습니다.');
         }
-        const [name2, tag2] = args[0].split('#');
-        player2 = { name: name2, tag: tag2 };
       } else {
-        // 두 플레이어 모두 직접 입력
-        if (!args[0].includes('#') || !args[1].includes('#')) {
-          return message.reply('❌ 올바른 형식이 아닙니다. (예: 닉네임1#태그1 닉네임2#태그2)');
+        // 두 플레이어 모두 직접 입력 (닉네임#태그, @멘션, 디코닉네임 지원)
+        try {
+          player1 = await resolveCompareInput(args[0], guildData);
+          player2 = await resolveCompareInput(args[1], guildData);
+        } catch (parseError) {
+          return message.reply(parseError.message || usageGuide);
         }
-        const [name1, tag1] = args[0].split('#');
-        const [name2, tag2] = args[1].split('#');
-        player1 = { name: name1, tag: tag1 };
-        player2 = { name: name2, tag: tag2 };
       }
 
       const loadingMsg = await message.reply('🔍 전적을 비교중입니다...');

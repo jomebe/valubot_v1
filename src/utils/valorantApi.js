@@ -168,6 +168,219 @@ export const valorantApi = {
     }
   },
 
+  // ======= Esports v2 VLR 엔드포인트 (v4.6.0) =======
+
+  // VLR 이벤트 목록 조회
+  async getEsportsEvents() {
+    try {
+      const response = await axios.get(
+        'https://api.henrikdev.xyz/valorant/v2/esports/vlr/events',
+        { 
+          headers: { 'Authorization': process.env.VALORANT_API_KEY },
+          timeout: 30000 // 30초 타임아웃
+        }
+      );
+      return response.data.data;
+    } catch (error) {
+      console.error('이스포츠 이벤트 조회 실패:', error);
+      
+      if (error.code === 'ECONNABORTED' || error.response?.status === 504) {
+        throw new Error('API_TIMEOUT');
+      }
+      if (error.response?.status === 429) {
+        throw new Error('RATE_LIMIT');
+      }
+      
+      throw new Error('이스포츠 이벤트 정보를 가져오는데 실패했습니다.');
+    }
+  },
+
+  // VLR 이벤트 매치 목록 조회
+  async getEsportsEventMatches(eventId) {
+    try {
+      const response = await axios.get(
+        `https://api.henrikdev.xyz/valorant/v2/esports/vlr/events/${eventId}/matches`,
+        { 
+          headers: { 'Authorization': process.env.VALORANT_API_KEY },
+          timeout: 30000 // 30초 타임아웃
+        }
+      );
+      return response.data.data;
+    } catch (error) {
+      console.error('이스포츠 이벤트 매치 조회 실패:', error);
+      
+      if (error.code === 'ECONNABORTED' || error.response?.status === 504) {
+        throw new Error('API_TIMEOUT');
+      }
+      if (error.response?.status === 429) {
+        throw new Error('RATE_LIMIT');
+      }
+      
+      throw new Error('이벤트 매치 정보를 가져오는데 실패했습니다.');
+    }
+  },
+
+  // VLR 매치 상세 조회
+  async getEsportsMatch(matchId) {
+    try {
+      const response = await axios.get(
+        `https://api.henrikdev.xyz/valorant/v2/esports/vlr/matches/${matchId}`,
+        { 
+          headers: { 'Authorization': process.env.VALORANT_API_KEY },
+          timeout: 30000 // 30초 타임아웃
+        }
+      );
+      return response.data.data;
+    } catch (error) {
+      console.error('이스포츠 매치 상세 조회 실패:', error);
+      
+      if (error.code === 'ECONNABORTED' || error.response?.status === 504) {
+        throw new Error('API_TIMEOUT');
+      }
+      if (error.response?.status === 429) {
+        throw new Error('RATE_LIMIT');
+      }
+      if (error.response?.status === 404) {
+        throw new Error('NOT_FOUND');
+      }
+      
+      throw new Error('매치 상세 정보를 가져오는데 실패했습니다.');
+    }
+  },
+
+  // VLR 팀 정보 조회
+  async getEsportsTeam(teamId) {
+    try {
+      const response = await axios.get(
+        `https://api.henrikdev.xyz/valorant/v2/esports/vlr/teams/${teamId}`,
+        { 
+          headers: { 'Authorization': process.env.VALORANT_API_KEY },
+          timeout: 30000 // 30초 타임아웃
+        }
+      );
+      return response.data.data;
+    } catch (error) {
+      console.error('이스포츠 팀 조회 실패:', error);
+      
+      // 클라이언트 타임아웃 또는 504 게이트웨이 타임아웃
+      if (error.code === 'ECONNABORTED' || error.response?.status === 504) {
+        throw new Error('API_TIMEOUT');
+      }
+      if (error.response?.status === 429) {
+        throw new Error('RATE_LIMIT');
+      }
+      if (error.response?.status === 404) {
+        throw new Error('NOT_FOUND');
+      }
+      
+      throw new Error('팀 정보를 가져오는데 실패했습니다.');
+    }
+  },
+
+  // VLR 팀 매치 조회
+  async getEsportsTeamMatches(teamId) {
+    try {
+      const response = await axios.get(
+        `https://api.henrikdev.xyz/valorant/v2/esports/vlr/teams/${teamId}/matches`,
+        { 
+          headers: { 'Authorization': process.env.VALORANT_API_KEY },
+          timeout: 30000 // 30초 타임아웃
+        }
+      );
+      return response.data.data;
+    } catch (error) {
+      console.error('이스포츠 팀 매치 조회 실패:', error);
+      
+      if (error.code === 'ECONNABORTED' || error.response?.status === 504) {
+        throw new Error('API_TIMEOUT');
+      }
+      if (error.response?.status === 429) {
+        throw new Error('RATE_LIMIT');
+      }
+      
+      throw new Error('팀 매치 정보를 가져오는데 실패했습니다.');
+    }
+  },
+
+  // VLR 팀 트랜잭션(이적) 조회
+  async getEsportsTeamTransactions(teamId) {
+    try {
+      const response = await axios.get(
+        `https://api.henrikdev.xyz/valorant/v2/esports/vlr/teams/${teamId}/transactions`,
+        { 
+          headers: { 'Authorization': process.env.VALORANT_API_KEY },
+          timeout: 30000 // 30초 타임아웃
+        }
+      );
+      return response.data.data;
+    } catch (error) {
+      console.error('이스포츠 팀 이적 정보 조회 실패:', error);
+      
+      if (error.code === 'ECONNABORTED' || error.response?.status === 504) {
+        throw new Error('API_TIMEOUT');
+      }
+      if (error.response?.status === 429) {
+        throw new Error('RATE_LIMIT');
+      }
+      
+      throw new Error('팀 이적 정보를 가져오는데 실패했습니다.');
+    }
+  },
+
+  // VLR 선수 정보 조회
+  async getEsportsPlayer(playerId) {
+    try {
+      const response = await axios.get(
+        `https://api.henrikdev.xyz/valorant/v2/esports/vlr/players/${playerId}`,
+        { 
+          headers: { 'Authorization': process.env.VALORANT_API_KEY },
+          timeout: 30000 // 30초 타임아웃
+        }
+      );
+      return response.data.data;
+    } catch (error) {
+      console.error('이스포츠 선수 조회 실패:', error);
+      
+      // 클라이언트 타임아웃 또는 504 게이트웨이 타임아웃
+      if (error.code === 'ECONNABORTED' || error.response?.status === 504) {
+        throw new Error('API_TIMEOUT');
+      }
+      if (error.response?.status === 429) {
+        throw new Error('RATE_LIMIT');
+      }
+      if (error.response?.status === 404) {
+        throw new Error('NOT_FOUND');
+      }
+      
+      throw new Error('선수 정보를 가져오는데 실패했습니다.');
+    }
+  },
+
+  // VLR 선수 매치 조회
+  async getEsportsPlayerMatches(playerId) {
+    try {
+      const response = await axios.get(
+        `https://api.henrikdev.xyz/valorant/v2/esports/vlr/players/${playerId}/matches`,
+        { 
+          headers: { 'Authorization': process.env.VALORANT_API_KEY },
+          timeout: 30000 // 30초 타임아웃
+        }
+      );
+      return response.data.data;
+    } catch (error) {
+      console.error('이스포츠 선수 매치 조회 실패:', error);
+      
+      if (error.code === 'ECONNABORTED' || error.response?.status === 504) {
+        throw new Error('API_TIMEOUT');
+      }
+      if (error.response?.status === 429) {
+        throw new Error('RATE_LIMIT');
+      }
+      
+      throw new Error('선수 매치 정보를 가져오는데 실패했습니다.');
+    }
+  },
+
   // 티어 아이콘 가져오기
   async getTierIcons() {
     if (cache.tiers) {

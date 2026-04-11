@@ -13,29 +13,32 @@ export const registerCommand = {
       let valorantId;
 
       // 인자 처리
-      if (args.length === 1) {
-        // 일반적인 자기 계정 등록
-        valorantId = args[0];
-      } else if (args.length === 2 && isAdmin) {
-        // 관리자가 다른 사용자 계정 등록
-        const mentionedUser = message.mentions.users.first() || 
-                            message.guild.members.cache.find(m => 
+      if (args.length < 1) {
+        return message.reply('사용법:\n일반 사용자: ㅂ발로등록 닉네임#태그\n관리자: ㅂ발로등록 디스코드닉네임 발로란트닉네임#태그');
+      }
+
+      if (isAdmin && args.length >= 2) {
+        // 관리자가 다른 사용자 계정 등록 (첫 인자는 대상 사용자)
+        const mentionedUser = message.mentions.users.first() ||
+                            message.guild.members.cache.find(m =>
                               m.user.tag.toLowerCase() === args[0].toLowerCase() ||
                               m.displayName.toLowerCase() === args[0].toLowerCase() ||
                               m.user.username.toLowerCase() === args[0].toLowerCase()
                             )?.user;
 
-        if (!mentionedUser) {
-          return message.reply('❌ 디스코드 사용자를 찾을 수 없습니다.');
+        if (mentionedUser) {
+          discordUser = mentionedUser;
+          valorantId = args.slice(1).join(' ');
+        } else {
+          // 관리자가 자기 계정을 등록하는 경우도 공백 닉네임 지원
+          valorantId = args.join(' ');
         }
-
-        discordUser = mentionedUser;
-        valorantId = args[1];
-      } else if (args.length === 2 && !isAdmin) {
-        return message.reply('❌ 다른 사용자의 계정은 관리자만 등록할 수 있습니다.');
       } else {
-        return message.reply('사용법:\n일반 사용자: ㅂ발로등록 닉네임#태그\n관리자: ㅂ발로등록 디스코드닉네임 발로란트닉네임#태그');
+        // 일반적인 자기 계정 등록 (공백 닉네임 지원)
+        valorantId = args.join(' ');
       }
+
+      valorantId = valorantId.trim();
 
       if (!valorantId.includes('#')) {
         return message.reply('❌ 올바른 형식이 아닙니다. (예: 닉네임#태그)');

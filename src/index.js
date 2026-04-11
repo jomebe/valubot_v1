@@ -255,16 +255,28 @@ const slashCommandPayload = SLASH_COMMAND_CONFIGS.map((config) => {
       break;
     case 'compare':
       builder
-        .addStringOption((option) =>
+        .addUserOption((option) =>
           option
-            .setName('상대')
-            .setDescription('비교할 상대 닉네임#태그')
-            .setRequired(true)
+            .setName('상대_유저')
+            .setDescription('서버에서 선택한 상대 유저 (발로등록 필요)')
+            .setRequired(false)
         )
         .addStringOption((option) =>
           option
-            .setName('내계정')
-            .setDescription('내 닉네임#태그 (비우면 등록 계정 사용)')
+            .setName('상대_riot_id')
+            .setDescription('상대 닉네임#태그 (유저 선택 대신 사용 가능)')
+            .setRequired(false)
+        )
+        .addUserOption((option) =>
+          option
+            .setName('내_유저')
+            .setDescription('내 쪽 유저 선택 (비우면 내 등록 계정)')
+            .setRequired(false)
+        )
+        .addStringOption((option) =>
+          option
+            .setName('내_riot_id')
+            .setDescription('내 닉네임#태그 (유저 선택 대신 사용 가능)')
             .setRequired(false)
         );
       break;
@@ -567,6 +579,8 @@ client.on('interactionCreate', async (interaction) => {
     let rawArgs = '';
     let targetUser = null;
     let targetMember = null;
+    let customArgs = null;
+    let validationError = '';
 
     switch (slashConfig.optionType) {
       case 'register':
@@ -588,9 +602,21 @@ client.on('interactionCreate', async (interaction) => {
         break;
       }
       case 'compare': {
-        const opponentId = interaction.options.getString('상대', true).trim();
-        const myId = interaction.options.getString('내계정')?.trim() || '';
-        rawArgs = myId ? `${myId} ${opponentId}` : opponentId;
+        const opponentUser = interaction.options.getUser('상대_유저');
+        const opponentRiotId = interaction.options.getString('상대_riot_id')?.trim() || '';
+        const myUser = interaction.options.getUser('내_유저');
+        const myRiotId = interaction.options.getString('내_riot_id')?.trim() || '';
+
+        const opponentToken = opponentUser ? `<@${opponentUser.id}>` : opponentRiotId;
+        const myToken = myUser ? `<@${myUser.id}>` : myRiotId;
+
+        if (!opponentToken) {
+          validationError = '❌ `/비교`는 `상대_유저` 또는 `상대_riot_id` 중 하나를 입력해야 합니다.';
+          break;
+        }
+
+        customArgs = myToken ? [myToken, opponentToken] : [opponentToken];
+        rawArgs = customArgs.join(' ');
         break;
       }
       case 'queue': {
@@ -633,6 +659,14 @@ client.on('interactionCreate', async (interaction) => {
         break;
     }
 
+    if (validationError) {
+      await interaction.reply({
+        content: validationError,
+        ephemeral: true,
+      });
+      return;
+    }
+
     const legacyCommandName = slashConfig.legacy;
     const command = commands.get(legacyCommandName);
 
@@ -648,7 +682,7 @@ client.on('interactionCreate', async (interaction) => {
       ? `<@${targetUser.id}>${rawArgs ? ` ${rawArgs}` : ''}`
       : rawArgs;
 
-    const args = argText ? argText.split(/\s+/) : [];
+    const args = customArgs || (argText ? argText.split(/\s+/) : []);
     const syntheticContent = `${legacyCommandName}${argText ? ` ${argText}` : ''}`;
     const slashMessage = createSlashMessageAdapter(
       interaction,

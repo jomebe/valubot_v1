@@ -28,6 +28,15 @@ export const helpCommand = {
             '`ㅂ무기 [무기이름]` - 발로란트 무기 정보를 확인합니다.'
         },
         {
+          name: '🏆 이스포츠',
+          value: 
+            '`ㅂ이스포츠` - 이스포츠 명령어 사용법을 확인합니다.\n' +
+            '`ㅂ이스포츠 이벤트` - VCT 대회 목록을 확인합니다.\n' +
+            '`ㅂ이스포츠 팀 [이름/ID]` - 팀 정보를 조회합니다.\n' +
+            '`ㅂ이스포츠 선수 [이름/ID]` - 선수 정보를 조회합니다.\n' +
+            '💡 더 자세한 사용법은 `ㅂ이스포츠` 입력'
+        },
+        {
           name: '🎲 유틸리티',
           value: 
             '`ㅂ랜덤맵 (ㅂㄹㄷㅁ)` - 무작위 발로란트 맵을 선택합니다.\n' +
@@ -57,15 +66,27 @@ export const helpCommand = {
             '`ㅂㅁ` - 맵 정보\n' +
             '`ㅂㅁㄱ` - 무기 정보\n' +
             '`ㅂㄹㄷㅂㄷ` - 리더보드\n' +
-            '`ㅂㅌㄱ` - 통계'
+            '`ㅂㅌㄱ` - 통계\n' +
+            '`ㅂ대회` - 이스포츠'
         }
       ],
       footer: {
-        text: '() 안의 명령어는 단축키입니다.'
+        text: '이 메시지는 1분 후 자동으로 삭제됩니다.'
       },
       timestamp: new Date()
     };
 
-    return message.reply({ embeds: [embed] });
+    // 원본 명령어 메시지 삭제
+    try {
+      await message.delete();
+    } catch (e) {
+      // 메시지 삭제 권한이 없을 경우 무시
+    }
+
+    // 채널에 도움말 전송 후 1분 후 삭제
+    const reply = await message.channel.send({ embeds: [embed] });
+    setTimeout(() => {
+      reply.delete().catch(() => {});
+    }, 60000);
   }
 }; 
