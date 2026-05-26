@@ -1,2 +1,8 @@
 node_modules/
 .env
+*.log
+voiceLog.json
+volumeSettings.json
+attendance.json
+timeoutHistory.json
+guildSettings_*.json
