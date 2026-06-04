@@ -26,6 +26,7 @@ import { weaponCommand } from './commands/weapon.js';
 import { premierCommand } from './commands/premier.js';
 import { esportsCommand } from './commands/esports.js';
 import { aiReviewCommand } from './commands/aiReview.js';
+import { focusedReviewCommand } from './commands/focusedReview.js';
 
 // 로그인/상점 명령어 (Riot 내부 API 사용)
 import { logoutCommand, handleLoginCancel } from './commands/login.js';
@@ -141,6 +142,8 @@ const commands = new Map([
   ['ㅂ평가', aiReviewCommand],
   ['ㅂai평가', aiReviewCommand],
   ['ㅂ분석', aiReviewCommand],
+  ['ㅂ집중평가', focusedReviewCommand],
+  ['ㅂ전판평가', focusedReviewCommand],
   ['ㅂ타임아웃', timeoutCommand],
   ['ㅂ매치', matchCommand],
   ['ㅂ최근', matchCommand],
@@ -190,6 +193,7 @@ const SLASH_COMMAND_CONFIGS = [
   { name: '랜덤맵', legacy: 'ㅂ랜덤맵', description: '무작위 발로란트 맵을 뽑습니다.' },
   { name: '통계', legacy: 'ㅂ통계', description: '최근 경기 통계를 확인합니다.', optionType: 'riotIdOptional' },
   { name: '평가', legacy: 'ㅂ평가', description: 'AI가 최근 전적을 분석해 발로란트 평가를 제공합니다.', optionType: 'riotIdOptional' },
+  { name: '집중평가', legacy: 'ㅂ집중평가', description: 'AI가 직전 1경기를 전문적으로 집중 평가합니다.', optionType: 'riotIdOptional' },
   { name: '타임아웃', legacy: 'ㅂ타임아웃', description: '관리자 전용 타임아웃을 실행합니다.', optionType: 'timeout' },
   { name: '매치', legacy: 'ㅂ매치', description: '최근 매치 정보를 확인합니다.', optionType: 'riotIdOptional' },
   { name: '티어', legacy: 'ㅂ티어', description: '현재 티어를 확인합니다.', optionType: 'riotIdOptional' },
