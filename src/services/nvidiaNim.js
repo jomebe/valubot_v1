@@ -69,6 +69,13 @@ function getModelCandidates() {
   return [...new Set([DEFAULT_NIM_MODEL, FALLBACK_NIM_MODEL])];
 }
 
+function getApiKeyCandidates() {
+  return [...new Set([
+    process.env.NVIDIA_NIM_API_KEY || process.env.NVIDIA_API_KEY,
+    process.env.NVIDIA_NIM_FALLBACK_API_KEY,
+  ].filter(Boolean))];
+}
+
 async function requestChatCompletion(apiKey, model, prompt, maxTokens = 900) {
   const response = await axios.post(
     NIM_CHAT_COMPLETIONS_URL,
@@ -113,9 +120,9 @@ async function requestChatCompletion(apiKey, model, prompt, maxTokens = 900) {
 }
 
 async function generateNimReview(prompt, maxTokens) {
-  const apiKey = process.env.NVIDIA_NIM_API_KEY || process.env.NVIDIA_API_KEY;
+  const apiKeys = getApiKeyCandidates();
 
-  if (!apiKey) {
+  if (apiKeys.length === 0) {
     const error = new Error('NVIDIA_NIM_API_KEY_MISSING');
     error.code = 'NVIDIA_NIM_API_KEY_MISSING';
     throw error;
@@ -126,37 +133,57 @@ async function generateNimReview(prompt, maxTokens) {
   const models = getModelCandidates();
   let lastError = null;
 
-  for (const model of models) {
-    try {
-      return await requestChatCompletion(apiKey, model, prompt, maxTokens);
-    } catch (error) {
-      if (error.code?.startsWith?.('NVIDIA_NIM_')) {
-        throw error;
-      }
+  for (let keyIndex = 0; keyIndex < apiKeys.length; keyIndex += 1) {
+    const apiKey = apiKeys[keyIndex];
+    let shouldTryNextKey = false;
 
-      const status = error.response?.status;
-      if (status === 401 || status === 403) {
-        const authError = new Error('NVIDIA_NIM_AUTH_FAILED');
-        authError.code = 'NVIDIA_NIM_AUTH_FAILED';
-        throw authError;
-      }
+    for (const model of models) {
+      try {
+        return await requestChatCompletion(apiKey, model, prompt, maxTokens);
+      } catch (error) {
+        if (error.code?.startsWith?.('NVIDIA_NIM_')) {
+          throw error;
+        }
 
-      if (status === 429) {
-        const rateLimitError = new Error('NVIDIA_NIM_RATE_LIMITED');
-        rateLimitError.code = 'NVIDIA_NIM_RATE_LIMITED';
-        throw rateLimitError;
-      }
+        lastError = error;
+        const status = error.response?.status;
 
-      lastError = error;
-      if (status === 502 || status === 503 || status === 504 || error.code === 'ECONNABORTED') {
-        continue;
-      }
+        if (status === 401 || status === 403 || status === 429) {
+          shouldTryNextKey = keyIndex < apiKeys.length - 1;
+          break;
+        }
 
+        if (status === 502 || status === 503 || status === 504 || error.code === 'ECONNABORTED') {
+          continue;
+        }
+
+        break;
+      }
+    }
+
+    if (shouldTryNextKey) {
+      console.warn('NVIDIA NIM 기본 키 실패: 백업 키로 재시도합니다.');
+      continue;
+    }
+
+    if (lastError) {
       break;
     }
   }
 
   const status = lastError?.response?.status;
+  if (status === 401 || status === 403) {
+    const authError = new Error('NVIDIA_NIM_AUTH_FAILED');
+    authError.code = 'NVIDIA_NIM_AUTH_FAILED';
+    throw authError;
+  }
+
+  if (status === 429) {
+    const rateLimitError = new Error('NVIDIA_NIM_RATE_LIMITED');
+    rateLimitError.code = 'NVIDIA_NIM_RATE_LIMITED';
+    throw rateLimitError;
+  }
+
   if (status === 502 || status === 503 || status === 504 || lastError?.code === 'ECONNABORTED') {
     console.error('NVIDIA NIM 호출 지연:', status || lastError?.code);
     const timeoutError = new Error('NVIDIA_NIM_TIMEOUT');
