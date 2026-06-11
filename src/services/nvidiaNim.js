@@ -1,14 +1,98 @@
 import axios from 'axios';
+import { createHash } from 'crypto';
 
 const NIM_CHAT_COMPLETIONS_URL = process.env.NVIDIA_NIM_API_URL || 'https://integrate.api.nvidia.com/v1/chat/completions';
 const DEFAULT_NIM_MODEL = process.env.NVIDIA_NIM_MODEL || 'deepseek-ai/deepseek-v4-pro';
-const FALLBACK_NIM_MODEL = process.env.NVIDIA_NIM_FALLBACK_MODEL || DEFAULT_NIM_MODEL;
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
+const MAX_SAFE_REQUESTS_PER_MINUTE = 36;
+const DEFAULT_MAX_CONCURRENT_REQUESTS = 2;
+const DEFAULT_USER_COOLDOWN_MS = 60 * 1000;
+const DEFAULT_GUILD_COOLDOWN_MS = 10 * 1000;
+const DEFAULT_CACHE_TTL_MS = 5 * 60 * 1000;
+const MAX_CACHE_SIZE = 100;
 const requestTimestamps = [];
+const userCooldowns = new Map();
+const guildCooldowns = new Map();
+const responseCache = new Map();
+const inFlightRequests = new Map();
+const blockedApiKeys = new Map();
+let activeRequestCount = 0;
+let preferredApiKeyIndex = 0;
 
 function getRateLimitPerMinute() {
-  const parsed = Number(process.env.NVIDIA_NIM_RATE_LIMIT_PER_MINUTE || 40);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : 40;
+  const parsed = Number(process.env.NVIDIA_NIM_RATE_LIMIT_PER_MINUTE || MAX_SAFE_REQUESTS_PER_MINUTE);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return MAX_SAFE_REQUESTS_PER_MINUTE;
+  }
+
+  return Math.min(Math.floor(parsed), MAX_SAFE_REQUESTS_PER_MINUTE);
+}
+
+function getPositiveIntegerEnv(name, fallback) {
+  const parsed = Number(process.env[name]);
+  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : fallback;
+}
+
+function getMaxConcurrentRequests() {
+  return Math.min(
+    getPositiveIntegerEnv('NVIDIA_NIM_MAX_CONCURRENT_REQUESTS', DEFAULT_MAX_CONCURRENT_REQUESTS),
+    5
+  );
+}
+
+function getUserCooldownMs() {
+  return getPositiveIntegerEnv(
+    'NVIDIA_NIM_USER_COOLDOWN_SECONDS',
+    DEFAULT_USER_COOLDOWN_MS / 1000
+  ) * 1000;
+}
+
+function getGuildCooldownMs() {
+  return getPositiveIntegerEnv(
+    'NVIDIA_NIM_GUILD_COOLDOWN_SECONDS',
+    DEFAULT_GUILD_COOLDOWN_MS / 1000
+  ) * 1000;
+}
+
+function getCacheTtlMs() {
+  return getPositiveIntegerEnv(
+    'NVIDIA_NIM_CACHE_TTL_SECONDS',
+    DEFAULT_CACHE_TTL_MS / 1000
+  ) * 1000;
+}
+
+function createLimitedError(code, retryAfterMs = 0) {
+  const error = new Error(code);
+  error.code = code;
+  error.retryAfterSeconds = Math.max(1, Math.ceil(retryAfterMs / 1000));
+  return error;
+}
+
+function enforceCommandCooldown(context = {}) {
+  const now = Date.now();
+  const userId = context.userId;
+  const guildId = context.guildId;
+
+  if (userId) {
+    const userAvailableAt = userCooldowns.get(userId) || 0;
+    if (userAvailableAt > now) {
+      throw createLimitedError('NVIDIA_NIM_USER_COOLDOWN', userAvailableAt - now);
+    }
+  }
+
+  if (guildId) {
+    const guildAvailableAt = guildCooldowns.get(guildId) || 0;
+    if (guildAvailableAt > now) {
+      throw createLimitedError('NVIDIA_NIM_GUILD_COOLDOWN', guildAvailableAt - now);
+    }
+  }
+
+  if (userId) {
+    userCooldowns.set(userId, now + getUserCooldownMs());
+  }
+  if (guildId) {
+    guildCooldowns.set(guildId, now + getGuildCooldownMs());
+  }
 }
 
 function enforceLocalRateLimit() {
@@ -18,9 +102,10 @@ function enforceLocalRateLimit() {
   }
 
   if (requestTimestamps.length >= getRateLimitPerMinute()) {
-    const error = new Error('NVIDIA_NIM_LOCAL_RATE_LIMIT');
-    error.code = 'NVIDIA_NIM_LOCAL_RATE_LIMIT';
-    throw error;
+    throw createLimitedError(
+      'NVIDIA_NIM_LOCAL_RATE_LIMIT',
+      RATE_LIMIT_WINDOW_MS - (now - requestTimestamps[0])
+    );
   }
 
   requestTimestamps.push(now);
@@ -65,15 +150,87 @@ function sanitizeModelContent(content) {
     .trim();
 }
 
-function getModelCandidates() {
-  return [...new Set([DEFAULT_NIM_MODEL, FALLBACK_NIM_MODEL])];
-}
-
 function getApiKeyCandidates() {
   return [...new Set([
     process.env.NVIDIA_NIM_API_KEY || process.env.NVIDIA_API_KEY,
     process.env.NVIDIA_NIM_FALLBACK_API_KEY,
   ].filter(Boolean))];
+}
+
+function selectApiKey() {
+  const apiKeys = getApiKeyCandidates();
+  if (apiKeys.length === 0) {
+    const error = new Error('NVIDIA_NIM_API_KEY_MISSING');
+    error.code = 'NVIDIA_NIM_API_KEY_MISSING';
+    throw error;
+  }
+
+  const now = Date.now();
+  let nearestAvailableAt = Infinity;
+
+  for (let offset = 0; offset < apiKeys.length; offset += 1) {
+    const index = (preferredApiKeyIndex + offset) % apiKeys.length;
+    const apiKey = apiKeys[index];
+    const blockedUntil = blockedApiKeys.get(apiKey) || 0;
+
+    if (blockedUntil <= now) {
+      preferredApiKeyIndex = index;
+      return { apiKey, index };
+    }
+
+    nearestAvailableAt = Math.min(nearestAvailableAt, blockedUntil);
+  }
+
+  throw createLimitedError(
+    'NVIDIA_NIM_KEY_UNAVAILABLE',
+    Number.isFinite(nearestAvailableAt) ? nearestAvailableAt - now : RATE_LIMIT_WINDOW_MS
+  );
+}
+
+function blockApiKey(apiKey, index, status) {
+  const apiKeys = getApiKeyCandidates();
+  const blockedUntil = status === 429 ? Date.now() + RATE_LIMIT_WINDOW_MS : Number.POSITIVE_INFINITY;
+  blockedApiKeys.set(apiKey, blockedUntil);
+
+  if (apiKeys.length > 1) {
+    preferredApiKeyIndex = (index + 1) % apiKeys.length;
+    console.warn('NVIDIA NIM 키 실패: 다음 요청부터 다른 키를 사용합니다.');
+  }
+}
+
+function createCacheKey(prompt, maxTokens) {
+  return createHash('sha256')
+    .update(`${DEFAULT_NIM_MODEL}\n${maxTokens}\n${prompt}`)
+    .digest('hex');
+}
+
+function getCachedResponse(cacheKey) {
+  const cached = responseCache.get(cacheKey);
+  if (!cached) {
+    return null;
+  }
+
+  if (Date.now() - cached.createdAt >= getCacheTtlMs()) {
+    responseCache.delete(cacheKey);
+    return null;
+  }
+
+  return {
+    ...cached.response,
+    cached: true,
+  };
+}
+
+function cacheResponse(cacheKey, response) {
+  if (responseCache.size >= MAX_CACHE_SIZE) {
+    const oldestKey = responseCache.keys().next().value;
+    responseCache.delete(oldestKey);
+  }
+
+  responseCache.set(cacheKey, {
+    response,
+    createdAt: Date.now(),
+  });
 }
 
 async function requestChatCompletion(apiKey, model, prompt, maxTokens = 900) {
@@ -119,88 +276,83 @@ async function requestChatCompletion(apiKey, model, prompt, maxTokens = 900) {
   };
 }
 
-async function generateNimReview(prompt, maxTokens) {
-  const apiKeys = getApiKeyCandidates();
-
-  if (apiKeys.length === 0) {
-    const error = new Error('NVIDIA_NIM_API_KEY_MISSING');
-    error.code = 'NVIDIA_NIM_API_KEY_MISSING';
-    throw error;
+async function performSingleNimRequest(prompt, maxTokens, cacheKey) {
+  if (activeRequestCount >= getMaxConcurrentRequests()) {
+    throw createLimitedError('NVIDIA_NIM_BUSY', 5000);
   }
 
+  const { apiKey, index } = selectApiKey();
   enforceLocalRateLimit();
+  activeRequestCount += 1;
 
-  const models = getModelCandidates();
-  let lastError = null;
-
-  for (let keyIndex = 0; keyIndex < apiKeys.length; keyIndex += 1) {
-    const apiKey = apiKeys[keyIndex];
-    let shouldTryNextKey = false;
-
-    for (const model of models) {
-      try {
-        return await requestChatCompletion(apiKey, model, prompt, maxTokens);
-      } catch (error) {
-        if (error.code?.startsWith?.('NVIDIA_NIM_')) {
-          throw error;
-        }
-
-        lastError = error;
-        const status = error.response?.status;
-
-        if (status === 401 || status === 403 || status === 429) {
-          shouldTryNextKey = keyIndex < apiKeys.length - 1;
-          break;
-        }
-
-        if (status === 502 || status === 503 || status === 504 || error.code === 'ECONNABORTED') {
-          continue;
-        }
-
-        break;
-      }
+  try {
+    const response = await requestChatCompletion(apiKey, DEFAULT_NIM_MODEL, prompt, maxTokens);
+    cacheResponse(cacheKey, response);
+    return response;
+  } catch (error) {
+    if (error.code?.startsWith?.('NVIDIA_NIM_')) {
+      throw error;
     }
 
-    if (shouldTryNextKey) {
-      console.warn('NVIDIA NIM 기본 키 실패: 백업 키로 재시도합니다.');
-      continue;
+    const status = error.response?.status;
+    if (status === 401 || status === 403) {
+      blockApiKey(apiKey, index, status);
+      const authError = new Error('NVIDIA_NIM_AUTH_FAILED');
+      authError.code = 'NVIDIA_NIM_AUTH_FAILED';
+      throw authError;
     }
 
-    if (lastError) {
-      break;
+    if (status === 429) {
+      blockApiKey(apiKey, index, status);
+      const rateLimitError = new Error('NVIDIA_NIM_RATE_LIMITED');
+      rateLimitError.code = 'NVIDIA_NIM_RATE_LIMITED';
+      throw rateLimitError;
     }
-  }
 
-  const status = lastError?.response?.status;
-  if (status === 401 || status === 403) {
-    const authError = new Error('NVIDIA_NIM_AUTH_FAILED');
-    authError.code = 'NVIDIA_NIM_AUTH_FAILED';
-    throw authError;
-  }
+    if (status === 502 || status === 503 || status === 504 || error.code === 'ECONNABORTED') {
+      console.error('NVIDIA NIM 호출 지연:', status || error.code);
+      const timeoutError = new Error('NVIDIA_NIM_TIMEOUT');
+      timeoutError.code = 'NVIDIA_NIM_TIMEOUT';
+      throw timeoutError;
+    }
 
-  if (status === 429) {
-    const rateLimitError = new Error('NVIDIA_NIM_RATE_LIMITED');
-    rateLimitError.code = 'NVIDIA_NIM_RATE_LIMITED';
-    throw rateLimitError;
+    console.error('NVIDIA NIM 호출 실패:', status || error.message);
+    const apiError = new Error('NVIDIA_NIM_REQUEST_FAILED');
+    apiError.code = 'NVIDIA_NIM_REQUEST_FAILED';
+    throw apiError;
+  } finally {
+    activeRequestCount -= 1;
   }
-
-  if (status === 502 || status === 503 || status === 504 || lastError?.code === 'ECONNABORTED') {
-    console.error('NVIDIA NIM 호출 지연:', status || lastError?.code);
-    const timeoutError = new Error('NVIDIA_NIM_TIMEOUT');
-    timeoutError.code = 'NVIDIA_NIM_TIMEOUT';
-    throw timeoutError;
-  }
-
-  console.error('NVIDIA NIM 호출 실패:', status || lastError?.message);
-  const apiError = new Error('NVIDIA_NIM_REQUEST_FAILED');
-  apiError.code = 'NVIDIA_NIM_REQUEST_FAILED';
-  throw apiError;
 }
 
-export async function generateValorantAiReview(analysisData) {
-  return generateNimReview(createPrompt(analysisData), 900);
+async function generateNimReview(prompt, maxTokens, context) {
+  enforceCommandCooldown(context);
+
+  const cacheKey = createCacheKey(prompt, maxTokens);
+  const cachedResponse = getCachedResponse(cacheKey);
+  if (cachedResponse) {
+    return cachedResponse;
+  }
+
+  const existingRequest = inFlightRequests.get(cacheKey);
+  if (existingRequest) {
+    return existingRequest;
+  }
+
+  const request = performSingleNimRequest(prompt, maxTokens, cacheKey);
+  inFlightRequests.set(cacheKey, request);
+
+  try {
+    return await request;
+  } finally {
+    inFlightRequests.delete(cacheKey);
+  }
 }
 
-export async function generateValorantFocusedReview(analysisData) {
-  return generateNimReview(createFocusedPrompt(analysisData), 1200);
+export async function generateValorantAiReview(analysisData, context = {}) {
+  return generateNimReview(createPrompt(analysisData), 900, context);
+}
+
+export async function generateValorantFocusedReview(analysisData, context = {}) {
+  return generateNimReview(createFocusedPrompt(analysisData), 1200, context);
 }

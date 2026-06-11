@@ -161,6 +161,14 @@ function getErrorMessage(error) {
     case 'NVIDIA_NIM_LOCAL_RATE_LIMIT':
     case 'NVIDIA_NIM_RATE_LIMITED':
       return '❌ AI 요청 한도를 초과했습니다. 잠시 후 다시 시도해주세요.';
+    case 'NVIDIA_NIM_USER_COOLDOWN':
+      return `❌ AI 평가는 사용자당 1분에 한 번만 사용할 수 있습니다. ${error.retryAfterSeconds || 1}초 후 다시 시도해주세요.`;
+    case 'NVIDIA_NIM_GUILD_COOLDOWN':
+      return `❌ 이 서버에서 AI 요청이 처리된 직후입니다. ${error.retryAfterSeconds || 1}초 후 다시 시도해주세요.`;
+    case 'NVIDIA_NIM_BUSY':
+      return '❌ 현재 다른 AI 평가를 처리 중입니다. 잠시 후 다시 시도해주세요.';
+    case 'NVIDIA_NIM_KEY_UNAVAILABLE':
+      return `❌ 사용 가능한 NVIDIA NIM 키가 잠시 없습니다. ${error.retryAfterSeconds || 1}초 후 다시 시도해주세요.`;
     case 'NVIDIA_NIM_TIMEOUT':
       return '❌ NVIDIA NIM 응답이 지연되고 있습니다. 잠시 후 다시 시도해주세요.';
     case 'NVIDIA_NIM_EMPTY_RESPONSE':
@@ -212,7 +220,10 @@ export const focusedReviewCommand = {
       }
 
       const focusedData = buildFocusedData({ account, mmr, match, player, name, tag });
-      const focusedReview = await generateValorantFocusedReview(focusedData);
+      const focusedReview = await generateValorantFocusedReview(focusedData, {
+        userId: message.author.id,
+        guildId: message.guild.id,
+      });
 
       const embed = {
         color: focusedData.match.result === '승리' ? 0x57F287 : 0xED4245,
