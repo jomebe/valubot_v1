@@ -9,6 +9,7 @@ const DEFAULT_MAX_CONCURRENT_REQUESTS = 2;
 const DEFAULT_USER_COOLDOWN_MS = 60 * 1000;
 const DEFAULT_GUILD_COOLDOWN_MS = 10 * 1000;
 const DEFAULT_CACHE_TTL_MS = 5 * 60 * 1000;
+const DEFAULT_REQUEST_TIMEOUT_MS = 120 * 1000;
 const MAX_CACHE_SIZE = 100;
 const requestTimestamps = [];
 const userCooldowns = new Map();
@@ -58,6 +59,13 @@ function getCacheTtlMs() {
   return getPositiveIntegerEnv(
     'NVIDIA_NIM_CACHE_TTL_SECONDS',
     DEFAULT_CACHE_TTL_MS / 1000
+  ) * 1000;
+}
+
+function getRequestTimeoutMs() {
+  return getPositiveIntegerEnv(
+    'NVIDIA_NIM_TIMEOUT_SECONDS',
+    DEFAULT_REQUEST_TIMEOUT_MS / 1000
   ) * 1000;
 }
 
@@ -233,6 +241,42 @@ function cacheResponse(cacheKey, response) {
   });
 }
 
+async function readStreamingResponse(stream, fallbackModel) {
+  let buffer = '';
+  let content = '';
+  let responseModel = fallbackModel;
+
+  for await (const chunk of stream) {
+    buffer += chunk.toString('utf8');
+    const lines = buffer.split(/\r?\n/);
+    buffer = lines.pop() || '';
+
+    for (const line of lines) {
+      if (!line.startsWith('data:')) {
+        continue;
+      }
+
+      const data = line.slice(5).trim();
+      if (!data || data === '[DONE]') {
+        continue;
+      }
+
+      try {
+        const event = JSON.parse(data);
+        responseModel = event.model || responseModel;
+        content += event.choices?.[0]?.delta?.content || '';
+      } catch {
+        console.warn('NVIDIA NIM 스트림 이벤트 파싱 실패');
+      }
+    }
+  }
+
+  return {
+    content: sanitizeModelContent(content),
+    model: responseModel,
+  };
+}
+
 async function requestChatCompletion(apiKey, model, prompt, maxTokens = 900) {
   const response = await axios.post(
     NIM_CHAT_COMPLETIONS_URL,
@@ -251,7 +295,7 @@ async function requestChatCompletion(apiKey, model, prompt, maxTokens = 900) {
       temperature: 0.35,
       top_p: 0.9,
       max_tokens: maxTokens,
-      stream: false,
+      stream: true,
     },
     {
       headers: {
@@ -259,21 +303,19 @@ async function requestChatCompletion(apiKey, model, prompt, maxTokens = 900) {
         Accept: 'application/json',
         'Content-Type': 'application/json',
       },
-      timeout: 45000,
+      responseType: 'stream',
+      timeout: getRequestTimeoutMs(),
     }
   );
 
-  const content = sanitizeModelContent(response.data?.choices?.[0]?.message?.content || '');
-  if (!content) {
+  const result = await readStreamingResponse(response.data, model);
+  if (!result.content) {
     const error = new Error('NVIDIA_NIM_EMPTY_RESPONSE');
     error.code = 'NVIDIA_NIM_EMPTY_RESPONSE';
     throw error;
   }
 
-  return {
-    content,
-    model: response.data?.model || model,
-  };
+  return result;
 }
 
 async function performSingleNimRequest(prompt, maxTokens, cacheKey) {
@@ -309,7 +351,15 @@ async function performSingleNimRequest(prompt, maxTokens, cacheKey) {
       throw rateLimitError;
     }
 
-    if (status === 502 || status === 503 || status === 504 || error.code === 'ECONNABORTED') {
+    if (
+      status === 502 ||
+      status === 503 ||
+      status === 504 ||
+      error.code === 'ECONNABORTED' ||
+      error.code === 'ECONNRESET' ||
+      error.code === 'ETIMEDOUT' ||
+      error.code === 'ERR_STREAM_PREMATURE_CLOSE'
+    ) {
       console.error('NVIDIA NIM 호출 지연:', status || error.code);
       const timeoutError = new Error('NVIDIA_NIM_TIMEOUT');
       timeoutError.code = 'NVIDIA_NIM_TIMEOUT';
