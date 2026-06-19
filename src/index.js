@@ -152,6 +152,7 @@ const commands = new Map([
   ['ㅂㄷㅇ', helpCommand],
   ['ㅂㄹㄷㅁ', randomMapCommand],
   ['ㅂ티어', tierCommand],
+  ['ㅂㅌㅇ', tierCommand],
   ['ㅂ랭크', tierCommand],
   ['ㅂ리더보드', leaderboardCommand],
   ['ㅂㄹㄷㅂㄷ', leaderboardCommand],
