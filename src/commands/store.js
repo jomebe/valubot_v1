@@ -89,7 +89,7 @@ export async function storeCommand(message) {
           name: skin.name,
           iconURL: tierInfo.icon || null
         })
-        .setDescription(`💵 **${skin.price?.toLocaleString() || '???'}** VP`)
+        .setDescription(`💵 **${skin.price?.toLocaleString() || '???'}** VP\n\u2003\u2003\u2003\u2003\u2003\u2003\u2003\u2003\u2003\u2003\u2003\u2003\u2003\u2003\u2003\u2003\u2003\u2003\u2003\u2003\u2003\u2003\u2003\u2003\u2003`)
         .setThumbnail(skin.icon || 'https://media.valorant-api.com/weapons/29a0cfab-485b-f5d5-779a-b59f85e204a8/displayicon.png');
 
       skinEmbeds.push(skinEmbed);
@@ -198,7 +198,7 @@ export async function handleStoreRefresh(interaction) {
           name: skin.name,
           iconURL: tierInfo.icon || null
         })
-        .setDescription(`💵 **${skin.price?.toLocaleString() || '???'}** VP`)
+        .setDescription(`💵 **${skin.price?.toLocaleString() || '???'}** VP\n\u2003\u2003\u2003\u2003\u2003\u2003\u2003\u2003\u2003\u2003\u2003\u2003\u2003\u2003\u2003\u2003\u2003\u2003\u2003\u2003\u2003\u2003\u2003\u2003\u2003`)
         .setThumbnail(skin.icon || 'https://media.valorant-api.com/weapons/29a0cfab-485b-f5d5-779a-b59f85e204a8/displayicon.png');
 
       skinEmbeds.push(skinEmbed);
