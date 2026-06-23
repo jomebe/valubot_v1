@@ -503,10 +503,10 @@ async function getRegion(accessToken, idToken) {
       }
     );
 
-    return response.data.affinities?.live || 'kr';
+    return response.data.affinities?.live || null;
   } catch (error) {
     console.error('리전 정보 획득 실패:', error.message);
-    return 'kr';
+    return null;
   }
 }
 
@@ -567,7 +567,8 @@ async function validateAndSaveToken(discordUserId, redirectUrl) {
     const entitlementsToken = await getEntitlementsToken(tokens.accessToken);
     const userInfo = await getUserInfo(tokens.accessToken);
     
-    const resolvedRegion = getShardFromToken(tokens.accessToken);
+    const region = await getRegion(tokens.accessToken, tokens.idToken);
+    const resolvedRegion = region || getShardFromToken(tokens.accessToken) || 'kr';
     const expiresAt = Date.now() + (55 * 60 * 1000); // 55분 유효
     
     const sessionData = {
