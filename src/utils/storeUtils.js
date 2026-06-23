@@ -154,10 +154,21 @@ function getSkinPrice(skinUuid) {
 /**
  * 상점 데이터 포맷팅
  */
-async function formatStorefront(storefrontData, offersData) {
+async function formatStorefront(storefrontData, offersData = null) {
   // 가격 매핑
   if (offersData) {
     mapPrices(offersData);
+  }
+
+  // SkinsPanelLayout에서 직접 가격 정보 추출 및 매핑
+  const priceMap = new Map();
+  if (storefrontData?.SkinsPanelLayout?.SingleItemStoreOffers) {
+    for (const offer of storefrontData.SkinsPanelLayout.SingleItemStoreOffers) {
+      const cost = offer.Cost?.[VP_CURRENCY_ID];
+      if (cost !== undefined) {
+        priceMap.set(offer.OfferID, cost);
+      }
+    }
   }
 
   const result = {
@@ -167,14 +178,14 @@ async function formatStorefront(storefrontData, offersData) {
   };
 
   // 데일리 상점 (4개 스킨)
-  if (storefrontData.SkinsPanelLayout) {
+  if (storefrontData?.SkinsPanelLayout) {
     const panel = storefrontData.SkinsPanelLayout;
     result.remainingTime = panel.SingleItemOffersRemainingDurationInSeconds;
 
     for (const skinUuid of panel.SingleItemOffers) {
       const skinInfo = await getSkinInfo(skinUuid);
       const tierInfo = getTierInfo(skinInfo?.tier);
-      const price = getSkinPrice(skinUuid);
+      const price = priceMap.get(skinUuid) || getSkinPrice(skinUuid);
 
       result.dailyOffers.push({
         uuid: skinUuid,

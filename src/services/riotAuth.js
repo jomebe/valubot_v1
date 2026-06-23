@@ -29,11 +29,10 @@ const USER_AGENT = 'RiotClient/70.0.0.5001641.4810659 rso-auth (Windows;10;;Prof
 async function getClientVersion() {
   try {
     const response = await axios.get('https://valorant-api.com/v1/version');
-    const data = response.data.data;
-    return `${data.branch}-shipping-${data.buildVersion}-${data.version.slice(-6)}`;
+    return response.data.data.riotClientVersion;
   } catch (error) {
     console.error('클라이언트 버전 조회 실패:', error);
-    return 'release-09.00-shipping-26-2624822';
+    return 'release-12.11-shipping-9-4815575';
   }
 }
 
@@ -622,15 +621,17 @@ async function getStorefront(discordUserId) {
   const regionData = REGIONS[session.region] || REGIONS['kr'];
 
   try {
-    const response = await axios.get(
-      `https://${regionData.pd}/store/v2/storefront/${session.puuid}`,
+    const response = await axios.post(
+      `https://${regionData.pd}/store/v3/storefront/${session.puuid}`,
+      {},
       {
         headers: {
           'Authorization': `Bearer ${session.accessToken}`,
           'X-Riot-Entitlements-JWT': session.entitlementsToken,
           'X-Riot-ClientVersion': clientVersion,
           'X-Riot-ClientPlatform': CLIENT_PLATFORM,
-          'User-Agent': USER_AGENT
+          'User-Agent': USER_AGENT,
+          'Content-Type': 'application/json'
         }
       }
     );

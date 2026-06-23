@@ -9,7 +9,6 @@ import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'disc
 import { 
   getUserSession, 
   getStorefront, 
-  getOffers,
   getWallet
 } from '../services/riotAuth.js';
 import { 
@@ -50,14 +49,13 @@ export async function storeCommand(message) {
     const loadingMsg = await message.reply({ embeds: [loadingEmbed] });
 
     // 상점 & 가격 데이터 조회
-    const [storefrontData, offersData, walletData] = await Promise.all([
+    const [storefrontData, walletData] = await Promise.all([
       getStorefront(userId),
-      getOffers(userId),
       getWallet(userId)
     ]);
 
     // 데이터 포맷팅
-    const store = await formatStorefront(storefrontData, offersData);
+    const store = await formatStorefront(storefrontData);
     const wallet = formatWallet(walletData);
 
     // 메인 Embed 생성
@@ -182,13 +180,12 @@ export async function handleStoreRefresh(interaction) {
     }
 
     // 상점 데이터 다시 조회
-    const [storefrontData, offersData, walletData] = await Promise.all([
+    const [storefrontData, walletData] = await Promise.all([
       getStorefront(userId),
-      getOffers(userId),
       getWallet(userId)
     ]);
 
-    const store = await formatStorefront(storefrontData, offersData);
+    const store = await formatStorefront(storefrontData);
     const wallet = formatWallet(walletData);
 
     // Embed 재생성
