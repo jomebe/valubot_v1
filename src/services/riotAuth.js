@@ -593,7 +593,7 @@ async function getStorefront(discordUserId) {
     console.error('상점 조회 실패:', error.response?.data || error.message);
     
     if (error.response?.status === 400 || error.response?.status === 401) {
-      userSessions.delete(discordUserId);
+      deleteUserSession(discordUserId);
       throw new Error('세션이 만료되었습니다. 다시 로그인해주세요.');
     }
     
@@ -616,7 +616,7 @@ async function getOffers(discordUserId) {
 
   try {
     const response = await axios.get(
-      `https://${regionData.pd}/store/v1/offers/`,
+      `https://${regionData.pd}/store/v1/offers`,
       {
         headers: {
           'Authorization': `Bearer ${session.accessToken}`,
@@ -645,6 +645,7 @@ async function getWallet(discordUserId) {
     throw new Error('로그인이 필요합니다.');
   }
 
+  const clientVersion = await getClientVersion();
   const regionData = REGIONS[session.region] || REGIONS['kr'];
 
   try {
@@ -654,6 +655,8 @@ async function getWallet(discordUserId) {
         headers: {
           'Authorization': `Bearer ${session.accessToken}`,
           'X-Riot-Entitlements-JWT': session.entitlementsToken,
+          'X-Riot-ClientVersion': clientVersion,
+          'X-Riot-ClientPlatform': CLIENT_PLATFORM,
           'User-Agent': USER_AGENT
         }
       }
@@ -662,6 +665,10 @@ async function getWallet(discordUserId) {
     return response.data;
   } catch (error) {
     console.error('지갑 조회 실패:', error);
+    if (error.response?.status === 400 || error.response?.status === 401) {
+      deleteUserSession(discordUserId);
+      throw new Error('세션이 만료되었습니다. 다시 로그인해주세요.');
+    }
     throw new Error('지갑 정보를 가져오는데 실패했습니다.');
   }
 }
@@ -676,6 +683,7 @@ async function getOwnedSkins(discordUserId) {
     throw new Error('로그인이 필요합니다.');
   }
 
+  const clientVersion = await getClientVersion();
   const regionData = REGIONS[session.region] || REGIONS['kr'];
   const SKIN_ITEM_TYPE = 'e7c63390-eda7-46e0-bb7a-a6abdacd2433';
 
@@ -686,6 +694,8 @@ async function getOwnedSkins(discordUserId) {
         headers: {
           'Authorization': `Bearer ${session.accessToken}`,
           'X-Riot-Entitlements-JWT': session.entitlementsToken,
+          'X-Riot-ClientVersion': clientVersion,
+          'X-Riot-ClientPlatform': CLIENT_PLATFORM,
           'User-Agent': USER_AGENT
         }
       }
@@ -694,6 +704,10 @@ async function getOwnedSkins(discordUserId) {
     return response.data;
   } catch (error) {
     console.error('보유 스킨 조회 실패:', error);
+    if (error.response?.status === 400 || error.response?.status === 401) {
+      deleteUserSession(discordUserId);
+      throw new Error('세션이 만료되었습니다. 다시 로그인해주세요.');
+    }
     throw new Error('보유 스킨 정보를 가져오는데 실패했습니다.');
   }
 }
