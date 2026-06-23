@@ -5,12 +5,7 @@
  */
 
 import axios from 'axios';
-
-// 사용자별 세션 저장소 (메모리 기반 - 봇 재시작 시 초기화됨)
-const userSessions = new Map();
-
-// QR 로그인 세션 저장소
-const qrSessions = new Map();
+import { saveUserSession, getUserSession as getStoredUserSession, deleteUserSession } from './authStore.js';
 
 // 리전별 API 엔드포인트
 const REGIONS = {
@@ -516,37 +511,54 @@ async function getRegion(accessToken, idToken) {
 }
 
 /**
- * 사용자 세션 확인
+ * 사용자 세션 확인 (authStore 연동)
  */
 function getUserSession(discordUserId) {
-  const session = userSessions.get(discordUserId);
-  
-  if (!session) {
-    return null;
-  }
-
-  if (Date.now() > session.expiresAt) {
-    userSessions.delete(discordUserId);
-    return null;
-  }
-
-  return session;
+  return getStoredUserSession(discordUserId);
 }
 
 /**
- * 사용자 로그아웃
+ * 사용자 로그아웃 (authStore 연동)
  */
 function logoutUser(discordUserId) {
-  userSessions.delete(discordUserId);
-  qrSessions.delete(discordUserId);
-  return true;
+  return deleteUserSession(discordUserId);
 }
 
 /**
- * QR 세션 취소
+ * 리다이렉트 URL에서 토큰을 추출하고 검증 후 세션 저장
  */
-function cancelQRSession(discordUserId) {
-  qrSessions.delete(discordUserId);
+async function validateAndSaveToken(discordUserId, redirectUrl) {
+  try {
+    const tokens = extractTokensFromUrl(redirectUrl);
+    
+    // 토큰 검증 단계: entitlements_token 및 사용자 정보 조회
+    const entitlementsToken = await getEntitlementsToken(tokens.accessToken);
+    const userInfo = await getUserInfo(tokens.accessToken);
+    const region = await getRegion(tokens.accessToken, tokens.idToken);
+    
+    const resolvedRegion = region || 'kr';
+    const expiresAt = Date.now() + (55 * 60 * 1000); // 55분 유효
+    
+    const sessionData = {
+      puuid: userInfo.puuid,
+      playerName: userInfo.playerName,
+      region: resolvedRegion,
+      expiresAt: expiresAt,
+      accessToken: tokens.accessToken,
+      entitlementsToken: entitlementsToken
+    };
+    
+    saveUserSession(discordUserId, sessionData);
+    
+    return {
+      success: true,
+      playerName: userInfo.playerName,
+      region: resolvedRegion
+    };
+  } catch (error) {
+    console.error('인증 토큰 검증 실패:', error.message);
+    throw new Error('올바른 라이엇 로그인 URL이 아니거나 토큰이 만료되었습니다.');
+  }
 }
 
 /**
@@ -692,10 +704,10 @@ export {
   loginWithCookie,
   getUserSession,
   logoutUser,
-  cancelQRSession,
   getStorefront,
   getOffers,
   getWallet,
   getOwnedSkins,
-  getClientVersion
+  getClientVersion,
+  validateAndSaveToken
 };

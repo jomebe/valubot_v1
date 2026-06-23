@@ -24,6 +24,7 @@ import {
  */
 export async function storeCommand(message) {
   const userId = message.author.id;
+  const isSlash = !!message.interaction;
 
   try {
     // 로그인 확인
@@ -33,11 +34,10 @@ export async function storeCommand(message) {
       const embed = new EmbedBuilder()
         .setColor(0xFD4554)
         .setTitle('🔒 로그인 필요')
-        .setDescription('상점을 확인하려면 먼저 로그인해야 합니다.\n\n`ㅂ로그인` 명령어를 사용해주세요.')
-        .setFooter({ text: 'Riot 계정으로 로그인하면 상점을 볼 수 있습니다.' })
+        .setDescription('로그인이 필요해요. /로그인 또는 ㅂ로그인 먼저 해주세요.')
         .setTimestamp();
 
-      return message.reply({ embeds: [embed] });
+      return message.reply({ embeds: [embed], ephemeral: isSlash });
     }
 
     // 로딩 메시지
@@ -140,16 +140,19 @@ export async function storeCommand(message) {
   } catch (error) {
     console.error('상점 조회 오류:', error);
 
+    const errMsg = error.message || '';
+    let description = '상점 정보를 가져오는 중 오류가 발생했습니다.';
+    if (errMsg.includes('만료') || errMsg.includes('로그인') || errMsg.includes('unauthorized') || errMsg.includes('401')) {
+      description = '로그인이 만료됐어요. /로그인으로 다시 연결해주세요.';
+    }
+
     const errorEmbed = new EmbedBuilder()
       .setColor(0xFF0000)
       .setTitle('❌ 상점 조회 실패')
-      .setDescription(error.message || '상점 정보를 가져오는데 실패했습니다.')
-      .addFields(
-        { name: '해결 방법', value: '`ㅂ로그인`으로 다시 로그인해보세요.' }
-      )
+      .setDescription(description)
       .setTimestamp();
 
-    await message.reply({ embeds: [errorEmbed] });
+    await message.reply({ embeds: [errorEmbed], ephemeral: isSlash });
   }
 }
 
@@ -173,7 +176,7 @@ export async function handleStoreRefresh(interaction) {
     
     if (!session) {
       return interaction.followUp({ 
-        content: '세션이 만료되었습니다. 다시 로그인해주세요.', 
+        content: '로그인이 만료됐어요. /로그인으로 다시 연결해주세요.', 
         ephemeral: true 
       });
     }
@@ -245,8 +248,13 @@ export async function handleStoreRefresh(interaction) {
 
   } catch (error) {
     console.error('상점 새로고침 오류:', error);
+    const errMsg = error.message || '';
+    let description = '상점 정보를 새로고침하는 중 오류가 발생했습니다.';
+    if (errMsg.includes('만료') || errMsg.includes('로그인') || errMsg.includes('unauthorized') || errMsg.includes('401')) {
+      description = '로그인이 만료됐어요. /로그인으로 다시 연결해주세요.';
+    }
     await interaction.followUp({ 
-      content: `오류: ${error.message}`, 
+      content: description, 
       ephemeral: true 
     });
   }

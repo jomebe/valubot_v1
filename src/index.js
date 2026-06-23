@@ -29,7 +29,7 @@ import { aiReviewCommand } from './commands/aiReview.js';
 import { focusedReviewCommand } from './commands/focusedReview.js';
 
 // 로그인/상점 명령어 (Riot 내부 API 사용)
-import { logoutCommand, handleLoginCancel } from './commands/login.js';
+import { loginCommand, logoutCommand } from './commands/login.js';
 import { storeCommand, handleStoreRefresh, handleWalletDetail } from './commands/store.js';
 
 // __dirname 설정 (ES 모듈에서 사용하기 위함)
@@ -180,8 +180,12 @@ const commands = new Map([
   ['ㅂesports', esportsCommand],
   // 로그인/상점 명령어 (Riot 내부 API)
   // 주의: 개인 학습/연구 목적으로만 사용
+  ['ㅂ로그인', { execute: loginCommand }],
+  ['ㅂㄹㄱㅇ', { execute: loginCommand }],
   ['ㅂ로그아웃', { execute: logoutCommand }],
+  ['ㅂㄹㄱㅇㅇ', { execute: logoutCommand }],
   ['ㅂ상점', { execute: storeCommand }],
+  ['ㅂㅅㅈ', { execute: storeCommand }],
   ['ㅂ내상점', { execute: storeCommand }],
 ]);
 
@@ -211,6 +215,8 @@ const SLASH_COMMAND_CONFIGS = [
   { name: '프리미어', legacy: 'ㅂ프리미어', description: '프리미어 정보를 확인합니다.', optionType: 'premier' },
   { name: '이스포츠', legacy: 'ㅂ이스포츠', description: '이스포츠 관련 정보를 확인합니다.', optionType: 'esports' },
   { name: '상점', legacy: 'ㅂ상점', description: '상점 정보를 조회합니다.' },
+  { name: '로그인', legacy: 'ㅂ로그인', description: 'Riot 계정을 연결하여 로그인합니다.' },
+  { name: '로그아웃', legacy: 'ㅂ로그아웃', description: 'Riot 계정 연결 정보를 삭제하고 로그아웃합니다.' },
 ];
 
 const slashCommandMap = new Map(
@@ -438,6 +444,7 @@ function createSlashMessageAdapter(interaction, content, targetUser = null, targ
     channel: interaction.channel,
     client: interaction.client,
     content,
+    interaction,
     mentions: {
       users: {
         first: () => targetUser,
@@ -717,30 +724,84 @@ client.on('interactionCreate', async (interaction) => {
     return;
   }
 
-  if (!interaction.isButton()) return;
-  
-  const customId = interaction.customId;
-  
-  // 로그인 취소 버튼
-  if (customId.startsWith('login_cancel_')) {
-    return handleLoginCancel(interaction);
+  if (interaction.isButton()) {
+    const customId = interaction.customId;
+    
+    // 토큰 등록 버튼 클릭 시 모달 열기
+    if (customId.startsWith('login_token_btn_')) {
+      const targetUserId = customId.split('_')[3];
+      if (interaction.user.id !== targetUserId) {
+        return interaction.reply({
+          content: '❌ 본인의 로그인 세션만 등록할 수 있습니다.',
+          ephemeral: true
+        });
+      }
+      
+      const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = await import('discord.js');
+      
+      const modal = new ModalBuilder()
+        .setCustomId(`login_modal_${targetUserId}`)
+        .setTitle('라이엇 로그인 URL 입력');
+        
+      const urlInput = new TextInputBuilder()
+        .setCustomId('redirect_url_input')
+        .setLabel('리다이렉트된 URL 전체를 입력해주세요')
+        .setStyle(TextInputStyle.Paragraph)
+        .setPlaceholder('http://localhost/redirect#access_token=...')
+        .setRequired(true);
+        
+      const row = new ActionRowBuilder().addComponents(urlInput);
+      modal.addComponents(row);
+      
+      await interaction.showModal(modal);
+      return;
+    }
+    
+    // 상점 새로고침 버튼
+    if (customId.startsWith('store_refresh_')) {
+      return handleStoreRefresh(interaction);
+    }
+    
+    // 지갑 상세 버튼
+    if (customId.startsWith('store_wallet_')) {
+      return handleWalletDetail(interaction);
+    }
   }
-  
-  // 상점 새로고침 버튼
-  if (customId.startsWith('store_refresh_')) {
-    return handleStoreRefresh(interaction);
-  }
-  
-  // 지갑 상세 버튼
-  if (customId.startsWith('store_wallet_')) {
-    return handleWalletDetail(interaction);
-  }
-  
-  if (interaction.customId === 'show_random_skins') {
-    // 이 부분 전체 삭제
+
+  // 모달 제출 처리
+  if (interaction.isModalSubmit()) {
+    const customId = interaction.customId;
+    
+    if (customId.startsWith('login_modal_')) {
+      const targetUserId = customId.split('_')[2];
+      if (interaction.user.id !== targetUserId) {
+        return interaction.reply({
+          content: '❌ 본인만 토큰을 등록할 수 있습니다.',
+          ephemeral: true
+        });
+      }
+      
+      await interaction.deferReply({ ephemeral: true });
+      
+      const redirectUrl = interaction.fields.getTextInputValue('redirect_url_input')?.trim();
+      
+      try {
+        const { validateAndSaveToken } = await import('./services/riotAuth.js');
+        await validateAndSaveToken(targetUserId, redirectUrl);
+        
+        await interaction.editReply({
+          content: '✅ **로그인 완료.** 이제 `/상점` 또는 `ㅂ상점`으로 오늘의 상점을 확인할 수 있어요.'
+        });
+      } catch (error) {
+        console.error('로그인 모달 처리 오류:', error.message);
+        await interaction.editReply({
+          content: `❌ **로그인 실패:** ${error.message || '인증에 실패했습니다.'}`
+        });
+      }
+      return;
+    }
   }
 });
-
 // Keep-alive 핑 (14분마다 - Render 무료 티어 15분 sleep 방지, 리소스 절약)
 setInterval(async () => {
   try {
