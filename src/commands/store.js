@@ -63,10 +63,10 @@ export async function storeCommand(message) {
       .setColor(0xFD4554)
       .setAuthor({ 
         name: `${session.playerName}`, 
-        iconURL: 'https://media.valorant-api.com/agents/e370fa57-4757-3604-3648-499e1f642d3f/displayicon.png' 
+        iconURL: message.author.displayAvatarURL({ extension: 'png', size: 128 })
       })
       .setTitle('🛒 오늘의 상점')
-      .setDescription(`⏱️ **${formatRemainingTime(store.remainingTime)}** 초기화`)
+      .setDescription(`⏱️ **${formatRemainingTime(store.remainingTime)}** 후 초기화`)
       .addFields(
         { 
           name: '💰 보유 포인트', 
@@ -85,33 +85,14 @@ export async function storeCommand(message) {
       
       const skinEmbed = new EmbedBuilder()
         .setColor(tierInfo.color || '#FD4554')
-        .setTitle(`${tierInfo.emoji} ${skin.name}`)
+        .setAuthor({
+          name: skin.name,
+          iconURL: tierInfo.icon || null
+        })
         .setDescription(`💵 **${skin.price?.toLocaleString() || '???'}** VP`)
         .setThumbnail(skin.icon || 'https://media.valorant-api.com/weapons/29a0cfab-485b-f5d5-779a-b59f85e204a8/displayicon.png');
 
-      // 이미지가 있으면 설정
-      if (skin.icon) {
-        skinEmbed.setImage(skin.icon);
-      }
-
       skinEmbeds.push(skinEmbed);
-    }
-
-    // 번들 정보 추가 (있는 경우)
-    if (store.featuredBundle) {
-      const bundleEmbed = new EmbedBuilder()
-        .setColor(0xF5955B)
-        .setTitle(`📦 ${store.featuredBundle.name}`)
-        .setDescription(
-          `💵 **${store.featuredBundle.price?.toLocaleString() || '???'}** VP\n` +
-          `⏱️ **${formatRemainingTime(store.featuredBundle.remainingTime)}** 남음`
-        );
-
-      if (store.featuredBundle.icon) {
-        bundleEmbed.setImage(store.featuredBundle.icon);
-      }
-
-      skinEmbeds.push(bundleEmbed);
     }
 
     // 버튼 생성
@@ -193,10 +174,9 @@ export async function handleStoreRefresh(interaction) {
       .setColor(0xFD4554)
       .setAuthor({ 
         name: `${session.playerName}`, 
-        iconURL: 'https://media.valorant-api.com/agents/e370fa57-4757-3604-3648-499e1f642d3f/displayicon.png' 
+        iconURL: interaction.user.displayAvatarURL({ extension: 'png', size: 128 })
       })
       .setTitle('🛒 오늘의 상점')
-      .setDescription(`⏱️ **${formatRemainingTime(store.remainingTime)}** 초기화`)
       .addFields(
         { 
           name: '💰 보유 포인트', 
@@ -214,12 +194,12 @@ export async function handleStoreRefresh(interaction) {
       
       const skinEmbed = new EmbedBuilder()
         .setColor(tierInfo.color || '#FD4554')
-        .setTitle(`${tierInfo.emoji} ${skin.name}`)
-        .setDescription(`💵 **${skin.price?.toLocaleString() || '???'}** VP`);
-
-      if (skin.icon) {
-        skinEmbed.setImage(skin.icon);
-      }
+        .setAuthor({
+          name: skin.name,
+          iconURL: tierInfo.icon || null
+        })
+        .setDescription(`💵 **${skin.price?.toLocaleString() || '???'}** VP`)
+        .setThumbnail(skin.icon || 'https://media.valorant-api.com/weapons/29a0cfab-485b-f5d5-779a-b59f85e204a8/displayicon.png');
 
       skinEmbeds.push(skinEmbed);
     }

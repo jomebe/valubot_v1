@@ -20,11 +20,36 @@ const RADIANITE_ID = 'e59aa87c-4cbf-517a-5983-6e81511be9b7';
 
 // 티어 정보
 const TIER_INFO = {
-  '12683d76-48d7-84a3-4e09-6985794f0445': { name: 'Select', emoji: '🔘', color: '#5a9fe2' },
-  '0cebb8be-46d7-c12a-d306-e9907bfc5a25': { name: 'Deluxe', emoji: '💚', color: '#009587' },
-  '60bca009-4182-7998-dee7-b8a2558dc369': { name: 'Premium', emoji: '💜', color: '#d1548d' },
-  'e046854e-406c-37f4-6607-19a9ba8426fc': { name: 'Exclusive', emoji: '💛', color: '#f5955b' },
-  '411e4a55-4e59-7757-41f0-86a53f101bb5': { name: 'Ultra', emoji: '🟡', color: '#fad663' }
+  '12683d76-48d7-84a3-4e09-6985794f0445': { 
+    name: 'Select', 
+    emoji: '🔘', 
+    color: '#5a9fe2',
+    icon: 'https://media.valorant-api.com/contenttiers/12683d76-48d7-84a3-4e09-6985794f0445/displayicon.png'
+  },
+  '0cebb8be-46d7-c12a-d306-e9907bfc5a25': { 
+    name: 'Deluxe', 
+    emoji: '💚', 
+    color: '#009587',
+    icon: 'https://media.valorant-api.com/contenttiers/0cebb8be-46d7-c12a-d306-e9907bfc5a25/displayicon.png'
+  },
+  '60bca009-4182-7998-dee7-b8a2558dc369': { 
+    name: 'Premium', 
+    emoji: '💜', 
+    color: '#d1548d',
+    icon: 'https://media.valorant-api.com/contenttiers/60bca009-4182-7998-dee7-b8a2558dc369/displayicon.png'
+  },
+  'e046854e-406c-37f4-6607-19a9ba8426fc': { 
+    name: 'Exclusive', 
+    emoji: '💛', 
+    color: '#f5955b',
+    icon: 'https://media.valorant-api.com/contenttiers/e046854e-406c-37f4-6607-19a9ba8426fc/displayicon.png'
+  },
+  '411e4a55-4e59-7757-41f0-86a53f101bb5': { 
+    name: 'Ultra', 
+    emoji: '🟡', 
+    color: '#fad663',
+    icon: 'https://media.valorant-api.com/contenttiers/411e4a55-4e59-7757-41f0-86a53f101bb5/displayicon.png'
+  }
 };
 
 /**
@@ -123,7 +148,7 @@ async function getBundleInfo(bundleUuid) {
  * 티어 정보 가져오기
  */
 function getTierInfo(tierUuid) {
-  return TIER_INFO[tierUuid] || { name: 'Unknown', emoji: '❓', color: '#808080' };
+  return TIER_INFO[tierUuid] || { name: 'Unknown', emoji: '❓', color: '#808080', icon: null };
 }
 
 /**
