@@ -525,6 +525,38 @@ function logoutUser(discordUserId) {
 }
 
 /**
+ * JWT 액세스 토큰에서 클러스터/샤드 정보를 파악
+ */
+function getShardFromToken(accessToken) {
+  try {
+    const parts = accessToken.split('.');
+    if (parts.length < 2) return 'kr';
+    
+    // Base64Url 디코딩 처리
+    let base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    while (base64.length % 4) {
+      base64 += '=';
+    }
+    
+    const payload = JSON.parse(Buffer.from(base64, 'base64').toString('utf8'));
+    const cluster = payload.dat?.c;
+    if (!cluster) return 'kr';
+    
+    const clusterLower = cluster.toLowerCase();
+    if (clusterLower.startsWith('ap')) return 'ap';
+    if (clusterLower === 'kr') return 'kr';
+    if (clusterLower === 'na') return 'na';
+    if (clusterLower === 'eu') return 'eu';
+    if (clusterLower === 'br') return 'br';
+    if (clusterLower === 'latam') return 'latam';
+    return 'kr';
+  } catch (error) {
+    console.error('토큰 샤드 분석 오류:', error.message);
+    return 'kr';
+  }
+}
+
+/**
  * 리다이렉트 URL에서 토큰을 추출하고 검증 후 세션 저장
  */
 async function validateAndSaveToken(discordUserId, redirectUrl) {
@@ -534,9 +566,8 @@ async function validateAndSaveToken(discordUserId, redirectUrl) {
     // 토큰 검증 단계: entitlements_token 및 사용자 정보 조회
     const entitlementsToken = await getEntitlementsToken(tokens.accessToken);
     const userInfo = await getUserInfo(tokens.accessToken);
-    const region = await getRegion(tokens.accessToken, tokens.idToken);
     
-    const resolvedRegion = region || 'kr';
+    const resolvedRegion = getShardFromToken(tokens.accessToken);
     const expiresAt = Date.now() + (55 * 60 * 1000); // 55분 유효
     
     const sessionData = {
