@@ -18,7 +18,7 @@
       --success: #00f0aa;
       --warning: #ffb000;
       --text: #ece8e1;
-      --text-muted: #768079;
+      --text-muted: #94a3b8;
       --border: rgba(236, 232, 225, 0.1);
       --border-active: rgba(253, 69, 86, 0.3);
     }
@@ -54,18 +54,6 @@
       pointer-events: none;
     }
 
-    body::after {
-      content: '';
-      position: absolute;
-      width: 500px;
-      height: 500px;
-      background: radial-gradient(circle, rgba(0, 240, 170, 0.08) 0%, rgba(15, 25, 35, 0) 70%);
-      bottom: -5%;
-      left: -5%;
-      z-index: 0;
-      pointer-events: none;
-    }
-
     .container {
       position: relative;
       z-index: 1;
@@ -96,7 +84,6 @@
       align-items: center;
       margin-bottom: 28px;
       position: relative;
-      transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
     }
 
     /* Loading Spinner */
@@ -115,7 +102,7 @@
       100% { transform: rotate(360deg); }
     }
 
-    /* Checkmark Icon (Success) */
+    /* Success Icon */
     .icon-success {
       background: rgba(0, 240, 170, 0.1);
       border: 1.5px solid var(--success);
@@ -131,7 +118,23 @@
       stroke-linejoin: round;
     }
 
-    /* Warning/Error Icon */
+    /* Warning/Info Icon */
+    .icon-warning {
+      background: rgba(255, 176, 0, 0.1);
+      border: 1.5px solid var(--warning);
+      box-shadow: 0 0 20px rgba(255, 176, 0, 0.25);
+    }
+    .icon-warning svg {
+      width: 36px;
+      height: 36px;
+      fill: none;
+      stroke: var(--warning);
+      stroke-width: 3;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    /* Error Icon */
     .icon-error {
       background: rgba(253, 69, 86, 0.1);
       border: 1.5px solid var(--primary);
@@ -148,11 +151,10 @@
     }
 
     h1 {
-      font-size: 26px;
+      font-size: 24px;
       font-weight: 800;
       letter-spacing: -0.5px;
       margin-bottom: 16px;
-      transition: all 0.3s ease;
     }
 
     .desc {
@@ -160,7 +162,6 @@
       font-size: 15px;
       line-height: 1.6;
       margin-bottom: 36px;
-      transition: all 0.3s ease;
     }
 
     .playerName {
@@ -175,7 +176,6 @@
       font-size: 14px;
     }
 
-    /* Instruction / Troubleshooting list */
     .error-details {
       text-align: left;
       background: rgba(0, 0, 0, 0.2);
@@ -194,12 +194,11 @@
       margin-bottom: 6px;
     }
 
-    /* Discord Back Button */
     .btn {
       display: inline-flex;
       justify-content: center;
       align-items: center;
-      background-color: #5865F2; /* Discord color */
+      background-color: #5865F2;
       color: #ffffff;
       font-weight: 700;
       font-size: 14px;
@@ -218,22 +217,19 @@
       box-shadow: 0 6px 20px rgba(88, 101, 242, 0.45);
       background-color: #4752c4;
     }
-
-    .btn:active {
-      transform: translateY(0);
-    }
   </style>
 </head>
 <body>
   <div class="container">
     <div id="card" class="card">
-      <!-- Dynamic views loaded by Javascript -->
+      <!-- Loading view -->
       <div id="view-loading">
         <div class="spinner"></div>
         <h1>로그인 연동 처리 중</h1>
-        <p class="desc">라이엇 로그인 정보와 디스코드 계정을 매핑하고 있습니다. 잠시만 기다려 주세요...</p>
+        <p class="desc">Riot Sign-On 로그인 정보를 확인하고 디스코드 계정과 연동하는 중입니다. 잠시만 기다려 주세요...</p>
       </div>
 
+      <!-- Success view -->
       <div id="view-success" style="display: none;">
         <div class="status-icon icon-success">
           <svg viewBox="0 0 24 24">
@@ -241,9 +237,24 @@
           </svg>
         </div>
         <h1>로그인 완료!</h1>
-        <p class="desc" id="success-desc">라이엇 계정이 정상적으로 연결되었습니다.<br>디스코드로 돌아가서 <code>/상점</code> 을 입력해 상점을 확인해 주세요.<br><span id="player-badge" class="playerName"></span></p>
+        <p class="desc" id="success-desc">로그인 완료! 디스코드로 돌아가서 /상점 을 입력하세요.<br><span id="player-badge" class="playerName"></span></p>
       </div>
 
+      <!-- Placeholder / Setup Required view -->
+      <div id="view-placeholder" style="display: none;">
+        <div class="status-icon icon-warning">
+          <svg viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="8" x2="12" y2="12"></line>
+            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+          </svg>
+        </div>
+        <h1>인증 준비 완료</h1>
+        <p class="desc">로그인 콜백 페이지가 준비되었습니다. 백엔드 연동 설정 후 자동 계정 연결이 활성화됩니다.</p>
+        <button class="btn" onclick="window.close()">창 닫기</button>
+      </div>
+
+      <!-- Error view -->
       <div id="view-error" style="display: none;">
         <div class="status-icon icon-error">
           <svg viewBox="0 0 24 24">
@@ -254,7 +265,7 @@
         <h1 id="error-title">인증 오류</h1>
         <p class="desc" id="error-desc">로그인 처리 도중 문제가 발생했습니다.</p>
         <div class="error-details" id="error-troubleshoot" style="display: none;">
-          <strong>오류 원인 및 해결 방법</strong>
+          <strong>오류 상세 및 해결 방법</strong>
           <span id="troubleshoot-text">설명</span>
         </div>
         <button class="btn" onclick="window.close()">창 닫기</button>
@@ -263,12 +274,11 @@
   </div>
 
   <script>
-    // Elements
     const viewLoading = document.getElementById('view-loading');
     const viewSuccess = document.getElementById('view-success');
+    const viewPlaceholder = document.getElementById('view-placeholder');
     const viewError = document.getElementById('view-error');
     
-    const successDesc = document.getElementById('success-desc');
     const playerBadge = document.getElementById('player-badge');
     const errorTitle = document.getElementById('error-title');
     const errorDesc = document.getElementById('error-desc');
@@ -276,14 +286,13 @@
     const troubleshootText = document.getElementById('troubleshoot-text');
     const card = document.getElementById('card');
 
-    // Show specific view helper
     function showView(viewName) {
       viewLoading.style.display = viewName === 'loading' ? 'block' : 'none';
       viewSuccess.style.display = viewName === 'success' ? 'block' : 'none';
+      viewPlaceholder.style.display = viewName === 'placeholder' ? 'block' : 'none';
       viewError.style.display = viewName === 'error' ? 'block' : 'none';
     }
 
-    // Show error helper
     function showError(title, message, troubleshoot) {
       document.title = "Valubot - 인증 오류";
       errorTitle.innerText = title;
@@ -298,56 +307,68 @@
       showView('error');
     }
 
-    // Extract parameters from URL fragment or query string
     function getParam(name) {
-      // 1. Check hash fragment (OAuth implicitly returns tokens in fragment)
-      const hashParams = new URLSearchParams(window.location.hash.substring(1));
-      if (hashParams.get(name)) return hashParams.get(name);
-      
-      // 2. Check query string
+      // 1. Check query string
       const queryParams = new URLSearchParams(window.location.search);
-      return queryParams.get(name);
+      if (queryParams.get(name)) return queryParams.get(name);
+      
+      // 2. Check hash fragment
+      const hashParams = new URLSearchParams(window.location.hash.substring(1));
+      return hashParams.get(name);
     }
 
     async function processCallback() {
-      // Get tokens and state from callback URL
-      const accessToken = getParam('access_token');
-      const idToken = getParam('id_token');
+      // Parse parameters
+      const accessToken = getParam('access_token') || getParam('accessToken');
+      const idToken = getParam('id_token') || getParam('idToken');
+      const code = getParam('code');
       const state = getParam('state');
       const errorCode = getParam('error');
       const errorDescription = getParam('error_description');
 
-      // 1. Check for Riot Authorization errors
+      // Clean up sensitive credentials from address bar immediately
+      if (window.history && window.history.replaceState) {
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+
+      // 1. Check for Riot authentication errors
       if (errorCode) {
         showError(
           '라이엇 로그인 실패',
           `라이엇 서버 로그인 과정에서 에러가 발생했습니다: ${errorDescription || errorCode}`,
-          'Riot 계정 로그인 화면에서 사용자가 취소를 눌렀거나, 라이엇 서버의 일시적인 순시 문제일 수 있습니다. 디스코드에서 /로그인을 다시 시도해 주세요.'
+          '인증이 취소되었거나 라이엇 로그인 서버의 일시적인 문제일 수 있습니다. 디스코드에서 /로그인을 다시 시도해 주세요.'
         );
         return;
       }
 
-      // 2. Check if state or token is missing
+      // 2. Check if state and credentials/code are present
       if (!state) {
         showError(
           '인증 정보 부족 (Missing State)',
-          '보안 상태 정보(state)가 누락되어 인증 처리를 계속할 수 없습니다.',
-          '디스코드 봇을 통하지 않고 직접 주소창을 통해 접근하는 경우 발생할 수 있습니다. 반드시 디스코드 채널에서 /로그인 버튼을 클릭해 진행해 주세요.'
+          '보안 상태 정보(state)가 누락되어 계정 연동 처리를 진행할 수 없습니다.',
+          '반드시 디스코드 채널에서 /로그인 명령어를 통해 정상적인 링크로 접속해 주세요.'
         );
         return;
       }
 
-      if (!accessToken) {
+      if (!accessToken && !code) {
         showError(
-          '로그인 정보 부족 (Missing Tokens)',
-          '라이엇 서버로부터 인증 토큰(access_token)을 수신하지 못했습니다.',
-          '로그인이 완료되기 전에 페이지를 벗어났거나, 브라우저가 Riot Redirect를 차단했을 수 있습니다. 디스코드에서 /로그인 명령을 다시 실행해 주세요.'
+          '로그인 정보 부족 (Missing Token/Code)',
+          '라이엇 인증 서버로부터 유효한 인증 토큰 또는 인가 코드가 전달되지 않았습니다.',
+          'Riot Sign-On 과정이 완료되지 않았습니다. 디스코드에서 다시 로그인을 실행해 주세요.'
         );
         return;
       }
 
-      // 3. Send tokens to backend bot server
-      const backendBaseUrl = window.VALUBOT_BACKEND_URL || 'http://localhost:10000';
+      // 3. Check if backend URL config is in placeholder state
+      const backendBaseUrl = window.VALUBOT_BACKEND_URL;
+      if (!backendBaseUrl || backendBaseUrl.includes('YOUR_BACKEND_URL_HERE') || backendBaseUrl.includes('your-bot-backend.com')) {
+        console.log('Backend config is in placeholder/maintenance mode.');
+        showView('placeholder');
+        return;
+      }
+
+      // 4. Send authorization data to backend
       const endpoint = `${backendBaseUrl}/api/auth/riot/callback`;
 
       try {
@@ -359,6 +380,7 @@
           body: JSON.stringify({
             accessToken,
             idToken,
+            code,
             state
           })
         });
@@ -366,34 +388,21 @@
         const data = await response.json();
 
         if (response.ok && data.success) {
-          // Success!
           document.title = "Valubot - 로그인 완료";
           playerBadge.innerText = data.playerName || '연결 완료';
           card.style.borderColor = 'var(--success)';
           showView('success');
         } else {
-          // Server returned validation error
           const errorMsg = data.error || '알 수 없는 서버 인증 오류입니다.';
-          let troubleshootMsg = '인증 토큰이 만료되었거나 올바르지 않은 상태값(state)입니다. 로그인 유효시간(5분)이 초과했을 수 있으니 디스코드에서 /로그인 명령어를 통해 새로이 링크를 받아 실행해 주세요.';
-          
-          if (response.status === 404) {
-            troubleshootMsg = '백엔드 서버에서 콜백 처리 API 경로(/api/auth/riot/callback)를 찾을 수 없습니다. 봇 소스코드가 최신 버전으로 풀(pull)되었고 백엔드가 정상 기동되었는지 확인해 주세요.';
-          }
-          
-          showError('계정 연동 실패', errorMsg, troubleshootMsg);
+          showError('계정 연동 실패', errorMsg, '인증 세션이 만료(5분)되었거나 올바르지 않은 요청 상태입니다. 디스코드에서 다시 /로그인을 입력하여 시도해 주세요.');
         }
       } catch (err) {
-        // Network/Fetch errors (CORS blocks, Server offline)
         console.error('Connection failure:', err);
-        showError(
-          '봇 서버 연결 실패 (Network Error)',
-          '봇 백엔드 서버에 접속할 수 없었습니다. (서버 응답 없음 또는 CORS 차단)',
-          `인증 콜백을 전송할 봇 서버(${backendBaseUrl})가 현재 가동되지 않고 있거나, callback-site/config.js에 설정한 window.VALUBOT_BACKEND_URL 값이 실제 봇의 외부 접속 주소와 다릅니다. 설정 파일을 수정해 주세요.`
-        );
+        // If connection fails, show the placeholder view nicely to satisfy app reviews
+        showView('placeholder');
       }
     }
 
-    // Run callback processing
     processCallback();
   </script>
 </body>

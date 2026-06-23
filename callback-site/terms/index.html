@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Valubot - 이용 약관</title>
+  <!-- Google Fonts Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-color: #0f1923;
+      --card-bg: rgba(23, 34, 45, 0.65);
+      --primary: #fd4556;
+      --primary-hover: #ff5c6b;
+      --text: #ece8e1;
+      --text-muted: #94a3b8;
+      --border: rgba(236, 232, 225, 0.1);
+      --border-active: rgba(253, 69, 86, 0.3);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      color: var(--text);
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      position: relative;
+      overflow-x: hidden;
+    }
+
+    /* Decorative background glowing spots */
+    body::before {
+      content: '';
+      position: absolute;
+      width: 600px;
+      height: 600px;
+      background: radial-gradient(circle, rgba(253, 69, 86, 0.1) 0%, rgba(15, 25, 35, 0) 70%);
+      top: -10%;
+      right: -10%;
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    .container {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      max-width: 800px;
+      padding: 60px 24px;
+      flex-grow: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    .card {
+      background: var(--card-bg);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      padding: 48px 40px;
+      box-shadow: 0 30px 60px rgba(0, 0, 0, 0.6);
+    }
+
+    .header {
+      margin-bottom: 32px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 20px;
+    }
+
+    h1 {
+      font-size: 28px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      margin-bottom: 8px;
+    }
+
+    .meta {
+      color: var(--text-muted);
+      font-size: 13.5px;
+    }
+
+    .content {
+      line-height: 1.8;
+      font-size: 15px;
+    }
+
+    h2 {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--primary);
+      margin-top: 28px;
+      margin-bottom: 12px;
+      border-left: 3px solid var(--primary);
+      padding-left: 10px;
+    }
+
+    p {
+      color: var(--text-muted);
+      margin-bottom: 16px;
+    }
+
+    ul, ol {
+      margin-bottom: 16px;
+      padding-left: 20px;
+      color: var(--text-muted);
+    }
+
+    li {
+      margin-bottom: 8px;
+    }
+
+    .footer {
+      width: 100%;
+      text-align: center;
+      padding: 30px 24px;
+      background: rgba(15, 25, 35, 0.8);
+      border-top: 1px solid var(--border);
+      z-index: 1;
+      position: relative;
+      margin-top: 40px;
+    }
+
+    .footer-links {
+      display: flex;
+      justify-content: center;
+      gap: 20px;
+      margin-bottom: 12px;
+    }
+
+    .footer-links a {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 13.5px;
+      transition: color 0.2s ease;
+    }
+
+    .footer-links a:hover {
+      color: var(--primary);
+    }
+
+    .copyright {
+      font-size: 12px;
+      color: rgba(236, 232, 225, 0.3);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="card">
+      <div class="header">
+        <h1>이용 약관 (Terms of Service)</h1>
+        <div class="meta">최종 수정일: 2026-06-24</div>
+      </div>
+
+      <div class="content">
+        <h2>1. 서비스 소개</h2>
+        <p>본 이용 약관은 VALORANT 디스코드 어시스턴트 봇 서비스인 'Valubot'(이하 "서비스" 또는 "봇")의 이용과 관련하여 제공자와 사용자 간의 권리, 의무 및 책임 사항을 정의합니다. 본 서비스는 디스코드 내에서 사용자가 직접 자신의 VALORANT 프로필 조회, 랭크 정보 확인, 매치 요약, 통계 집계 등을 수행할 수 있도록 돕는 도구입니다.</p>
+
+        <h2>2. 이용 자격</h2>
+        <p>본 서비스는 Discord 계정을 소유하고 Riot Games의 VALORANT 계정을 보유한 사용자라면 누구나 이용할 수 있습니다. 봇을 디스코드 서버에 초대하거나 봇의 명령어를 사용하는 사용자는 본 약관에 동의한 것으로 간주됩니다.</p>
+
+        <h2>3. 계정 연결</h2>
+        <ul>
+          <li>사용자는 반드시 <strong>본인 소유의 Riot Games 계정</strong>만을 서비스에 연결해야 합니다. 타인의 계정을 도용하거나 부정하게 연결하는 행위는 엄격히 금지됩니다.</li>
+          <li>Riot Sign-On(RSO)을 통한 인증 과정은 Riot Games 공식 홈페이지에서 직접 안전하게 수행되며, 이 과정에서 발생할 수 있는 로그인 자격 증명의 유실이나 제3자 탈취에 대해 본 서비스는 일체의 책임을 지지 않습니다.</li>
+        </ul>
+
+        <h2>4. 사용자 책임 및 금지 행위</h2>
+        <p>사용자는 서비스를 이용함에 있어 다음 행위를 해서는 안 됩니다:</p>
+        <ol>
+          <li>서비스의 정상적인 운영을 방해하거나, 자동화 도구(스크립트, 매크로 등)를 사용하여 비정상적으로 과도한 요청을 전송하는 행위</li>
+          <li>본 서비스의 보안 취약점을 탐지, 악용하거나 우회하려고 시도하는 행위</li>
+          <li>Riot Games의 서비스 이용 약관(Terms of Service) 또는 정책을 위반하여 본 서비스를 연동 및 악용하는 행위</li>
+          <li>봇의 운영을 방해하기 위해 고의로 시스템 리소스를 낭비하게 하는 행위</li>
+        </ol>
+
+        <h2>5. 서비스 변경 및 중단</h2>
+        <p>제공자는 사전 고지 없이 본 서비스의 기능 일부 또는 전부를 변경, 수정, 중단할 수 있습니다. 이는 서버 점검, API 변경 대응, 긴급 보안 패치 등 원활하고 안정적인 서비스 운영을 위해 필요한 조치에 해당합니다.</p>
+
+        <h2>6. 면책 조항</h2>
+        <ul>
+          <li>본 서비스는 "있는 그대로(AS IS)" 제공되며, 서비스의 완전성, 안정성, 지속성에 대해 어떠한 명시적 혹은 묵시적 보증도 하지 않습니다.</li>
+          <li>Riot Games API 또는 Discord API의 장애, 네트워크 연결 문제, 서버 불능 상태 등 외부 요인에 의해 발생하는 서비스의 불능 또는 오류에 대해 일체의 책임을 지지 않습니다.</li>
+        </ul>
+
+        <h2>7. Riot Games 관련 고지</h2>
+        <p>Valubot은 Riot Games와 공식적인 파트너십을 맺지 않았으며, Riot Games가 제작하거나 보증, 후원 또는 특별히 승인한 서비스가 아닙니다. VALORANT 및 Riot Games와 관련된 모든 상표, 콘텐츠, 스크린샷 및 기타 지식재산권은 Riot Games, Inc.에 귀속됩니다.</p>
+
+        <h2>8. 문의</h2>
+        <p>본 이용 약관에 대한 의문 사항이나 건의 사항이 있으신 경우, 아래의 연락처로 문의해 주시기 바랍니다.</p>
+        <ul>
+          <li>이메일 문의: <strong>donghwa70767076@gmail.com</strong></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <footer class="footer">
+    <div class="footer-links">
+      <a href="/">홈으로</a>
+      <a href="/privacy">개인정보 처리방침</a>
+      <a href="/auth/callback">인증 테스트</a>
+    </div>
+    <div class="copyright">© 2026 Valubot. All rights reserved.</div>
+  </footer>
+</body>
+</html>

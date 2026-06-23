@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Valubot - 개인정보 처리방침</title>
+  <!-- Google Fonts Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-color: #0f1923;
+      --card-bg: rgba(23, 34, 45, 0.65);
+      --primary: #fd4556;
+      --primary-hover: #ff5c6b;
+      --text: #ece8e1;
+      --text-muted: #94a3b8;
+      --border: rgba(236, 232, 225, 0.1);
+      --border-active: rgba(253, 69, 86, 0.3);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      color: var(--text);
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      position: relative;
+      overflow-x: hidden;
+    }
+
+    /* Decorative background glowing spots */
+    body::before {
+      content: '';
+      position: absolute;
+      width: 600px;
+      height: 600px;
+      background: radial-gradient(circle, rgba(253, 69, 86, 0.1) 0%, rgba(15, 25, 35, 0) 70%);
+      top: -10%;
+      right: -10%;
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    .container {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      max-width: 800px;
+      padding: 60px 24px;
+      flex-grow: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    .card {
+      background: var(--card-bg);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      padding: 48px 40px;
+      box-shadow: 0 30px 60px rgba(0, 0, 0, 0.6);
+    }
+
+    .header {
+      margin-bottom: 32px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 20px;
+    }
+
+    h1 {
+      font-size: 28px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      margin-bottom: 8px;
+    }
+
+    .meta {
+      color: var(--text-muted);
+      font-size: 13.5px;
+    }
+
+    .content {
+      line-height: 1.8;
+      font-size: 15px;
+    }
+
+    h2 {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--primary);
+      margin-top: 28px;
+      margin-bottom: 12px;
+      border-left: 3px solid var(--primary);
+      padding-left: 10px;
+    }
+
+    p {
+      color: var(--text-muted);
+      margin-bottom: 16px;
+    }
+
+    ul, ol {
+      margin-bottom: 16px;
+      padding-left: 20px;
+      color: var(--text-muted);
+    }
+
+    li {
+      margin-bottom: 8px;
+    }
+
+    .footer {
+      width: 100%;
+      text-align: center;
+      padding: 30px 24px;
+      background: rgba(15, 25, 35, 0.8);
+      border-top: 1px solid var(--border);
+      z-index: 1;
+      position: relative;
+      margin-top: 40px;
+    }
+
+    .footer-links {
+      display: flex;
+      justify-content: center;
+      gap: 20px;
+      margin-bottom: 12px;
+    }
+
+    .footer-links a {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 13.5px;
+      transition: color 0.2s ease;
+    }
+
+    .footer-links a:hover {
+      color: var(--primary);
+    }
+
+    .copyright {
+      font-size: 12px;
+      color: rgba(236, 232, 225, 0.3);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="card">
+      <div class="header">
+        <h1>개인정보 처리방침 (Privacy Policy)</h1>
+        <div class="meta">최종 수정일: 2026-06-24</div>
+      </div>
+
+      <div class="content">
+        <h2>1. 개요</h2>
+        <p>Valubot 서비스 제공자(이하 "제공자")는 사용자의 개인정보 보호를 최우선 가치로 여기며, 관련 법령을 준수합니다. 본 방침은 디스코드 봇 서비스 제공 시 수집하는 정보의 종류, 목적, 보관 및 파기 절차 등에 대해 성실히 안내하고자 작성되었습니다.</p>
+
+        <h2>2. 수집하는 정보</h2>
+        <p>봇의 안정적인 서비스 이용과 기능 연동을 위해 사용자가 계정 연결 수락 시 다음 정보를 수집할 수 있습니다:</p>
+        <ul>
+          <li><strong>디스코드 사용자 식별자 (Discord User ID)</strong>: 사용자를 구분하고 계정 매핑 설정을 저장하기 위함</li>
+          <li><strong>라이엇 계정 고유 식별자 (Riot PUUID 및 Account ID)</strong>: 발로란트 게임 데이터 조회를 위한 핵심 식별 정보</li>
+          <li><strong>라이엇 계정 표시명 (Riot Game Name 및 Tagline)</strong>: 디스코드 내에서 사용자의 프로필로 표시하기 위함</li>
+          <li><strong>인증 토큰 (Access Token / Refresh Token 또는 세션 데이터)</strong>: Riot Sign-On(RSO) 연동 시 API 인증 요청을 유지하기 위해 필요</li>
+          <li><strong>기타 서비스 운영 메타데이터</strong>: 봇 사용 명령어 횟수, 오류 상태 분석 등 원활한 모니터링을 위한 최소한의 데이터</li>
+        </ul>
+
+        <h2>3. 저장하지 않는 정보</h2>
+        <p>Valubot은 다음 정보를 <strong>어떠한 경우에도 획득, 전송 또는 저장하지 않습니다:</strong></p>
+        <ul>
+          <li><strong>라이엇 계정의 비밀번호 (Riot Password)</strong>: 사용자는 라이엇 게임즈 공식 보안 인증 창을 통해서만 안전하게 인증을 거칩니다.</li>
+          <li><strong>디스코드 계정의 비밀번호 (Discord Password)</strong></li>
+          <li><strong>결제 정보 (신용카드 정보, 은행 계좌 정보 등)</strong></li>
+        </ul>
+
+        <h2>4. 수집 목적</h2>
+        <p>수집된 정보는 다음 목적 이외에는 사용되지 않습니다:</p>
+        <ol>
+          <li>디스코드 내에서 사용자 요청에 따른 전적 조회 및 프로필 정보 로드</li>
+          <li>랭크 등락 추적 및 서버 리더보드 계산을 위한 데이터 비교 연산</li>
+          <li>비정상 요청 감지 및 이상 트래픽 유발 차단을 통한 서비스 안정화</li>
+        </ol>
+
+        <h2>5. 제3자 제공 및 위탁</h2>
+        <p>제공자는 사용자의 동의 없이 개인정보를 제3자에게 판매하거나 무단 제공하지 않습니다. 다만, 디스코드 플랫폼 환경 내에서의 동작(Discord, Inc.) 및 발로란트 전적 데이터 요청(Riot Games, Inc.)을 위한 API 통신 과정에서 해당 회사들로 정보가 전송될 수 있습니다.</p>
+
+        <h2>6. 보관 기간 및 파기</h2>
+        <ul>
+          <li>계정 연동 데이터는 서비스 사용을 원치 않아 사용자가 디스코드 내에서 <strong>/로그아웃</strong> 또는 <strong>ㅂ로그아웃</strong> 명령어를 실행하여 연동 해제를 요청하면 저장소에서 <strong>즉시 영구 삭제</strong>됩니다.</li>
+          <li>수집 목적이 달성되었거나 봇이 서버에서 추방된 경우 관련 데이터는 내부 파기 정책에 따라 안전하게 영구 소멸 조치합니다.</li>
+        </ul>
+
+        <h2>7. 사용자 권리</h2>
+        <p>사용자는 원할 때 언제든지 디스코드 명령어(<code>/로그아웃</code>)를 사용하여 자신의 계정 정보 연결을 삭제하고 파기하도록 권리를 행사할 수 있으며, 이메일을 통하여 상세 내역 조회 및 명시적 영구 삭제를 추가 요청하실 수 있습니다.</p>
+
+        <h2>8. 보안 조치</h2>
+        <p>제공자는 모든 민감한 세션 정보 및 액세스 토큰 데이터가 저장될 때 안전하게 암호화(AES-256-CBC 등) 조치한 후 보관되도록 조치하고 있습니다. 또한 무단 조회를 방지하기 위해 최소한의 보관 서버 접근 제한 정책을 유지하고 있습니다.</p>
+
+        <h2>9. 문의</h2>
+        <p>개인정보 처리방침과 관련된 문의가 있으신 경우 다음 연락처로 접수해 주시면 신속하게 답변해 드리겠습니다.</p>
+        <ul>
+          <li>이메일 문의: <strong>donghwa70767076@gmail.com</strong></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <footer class="footer">
+    <div class="footer-links">
+      <a href="/">홈으로</a>
+      <a href="/terms">이용 약관</a>
+      <a href="/auth/callback">인증 테스트</a>
+    </div>
+    <div class="copyright">© 2026 Valubot. All rights reserved.</div>
+  </footer>
+</body>
+</html>
