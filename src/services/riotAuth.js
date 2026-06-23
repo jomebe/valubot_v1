@@ -539,16 +539,31 @@ function getShardFromToken(accessToken) {
     }
     
     const payload = JSON.parse(Buffer.from(base64, 'base64').toString('utf8'));
-    const cluster = payload.dat?.c;
-    if (!cluster) return 'kr';
     
-    const clusterLower = cluster.toLowerCase();
-    if (clusterLower.startsWith('ap')) return 'ap';
-    if (clusterLower === 'kr') return 'kr';
-    if (clusterLower === 'na') return 'na';
-    if (clusterLower === 'eu') return 'eu';
-    if (clusterLower === 'br') return 'br';
-    if (clusterLower === 'latam') return 'latam';
+    // 1. dat.r (Region) 필드 파싱 (가장 정확한 상점 데이터베이스 리전: KR -> kr, AP -> ap 등)
+    const region = payload.dat?.r;
+    if (region) {
+      const regionLower = region.toLowerCase();
+      if (regionLower === 'kr') return 'kr';
+      if (regionLower === 'ap') return 'ap';
+      if (regionLower === 'na') return 'na';
+      if (regionLower === 'eu') return 'eu';
+      if (regionLower === 'br') return 'br';
+      if (regionLower === 'latam') return 'latam';
+    }
+    
+    // 2. dat.c (Cluster) 필드 파싱 (백업)
+    const cluster = payload.dat?.c;
+    if (cluster) {
+      const clusterLower = cluster.toLowerCase();
+      if (clusterLower.startsWith('ap')) return 'ap';
+      if (clusterLower === 'kr') return 'kr';
+      if (clusterLower === 'na') return 'na';
+      if (clusterLower === 'eu') return 'eu';
+      if (clusterLower === 'br') return 'br';
+      if (clusterLower === 'latam') return 'latam';
+    }
+    
     return 'kr';
   } catch (error) {
     console.error('토큰 샤드 분석 오류:', error.message);
