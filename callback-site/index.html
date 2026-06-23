@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Valubot - 라이엇 로그인 연동</title>
+  <!-- Google Fonts Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-color: #0f1923;
+      --card-bg: rgba(23, 34, 45, 0.6);
+      --primary: #fd4556;
+      --text: #ece8e1;
+      --text-muted: #768079;
+      --border: rgba(253, 69, 86, 0.2);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      color: var(--text);
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* Background decorative elements */
+    body::before {
+      content: '';
+      position: absolute;
+      width: 600px;
+      height: 600px;
+      background: radial-gradient(circle, rgba(253, 69, 86, 0.15) 0%, rgba(15, 25, 35, 0) 70%);
+      top: -10%;
+      right: -10%;
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    body::after {
+      content: '';
+      position: absolute;
+      width: 650px;
+      height: 650px;
+      background: radial-gradient(circle, rgba(253, 69, 86, 0.1) 0%, rgba(15, 25, 35, 0) 70%);
+      bottom: -10%;
+      left: -10%;
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    .container {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      max-width: 480px;
+      padding: 24px;
+    }
+
+    .card {
+      background: var(--card-bg);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 40px 32px;
+      text-align: center;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+      animation: fadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .logo-container {
+      display: inline-flex;
+      justify-content: center;
+      align-items: center;
+      width: 80px;
+      height: 80px;
+      background: rgba(253, 69, 86, 0.1);
+      border: 1.5px solid var(--primary);
+      border-radius: 50%;
+      margin-bottom: 24px;
+      position: relative;
+      box-shadow: 0 0 20px rgba(253, 69, 86, 0.3);
+    }
+
+    .logo-container svg {
+      width: 42px;
+      height: 42px;
+      fill: var(--primary);
+    }
+
+    h1 {
+      font-size: 28px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      margin-bottom: 12px;
+      background: linear-gradient(135deg, #fff 0%, #ece8e1 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    p {
+      color: var(--text-muted);
+      font-size: 15px;
+      line-height: 1.6;
+      margin-bottom: 32px;
+    }
+
+    .footer {
+      color: rgba(236, 232, 225, 0.3);
+      font-size: 12px;
+      margin-top: 16px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="card">
+      <div class="logo-container">
+        <!-- Valorant Logo SVG style -->
+        <svg viewBox="0 0 100 100">
+          <path d="M50 15 L85 50 L50 85 L15 50 Z" />
+          <circle cx="50" cy="50" r="10" fill="#0f1923" />
+        </svg>
+      </div>
+      <h1>Valubot</h1>
+      <p>VALORANT 개인 일일 상점을 확인할 수 있는 디스코드 봇 로그인 인증용 웹사이트입니다. 디스코드에서 <code>/로그인</code> 명령어를 사용해 계정을 인증해 주세요.</p>
+      <div class="footer">© 2026 Valubot. All rights reserved.</div>
+    </div>
+  </div>
+</body>
+</html>

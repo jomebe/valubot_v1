@@ -5,7 +5,13 @@
  */
 
 import axios from 'axios';
+import crypto from 'crypto';
 import { saveUserSession, getUserSession as getStoredUserSession, deleteUserSession } from './authStore.js';
+
+// 세션 저장용 Map 객체 선언
+const qrSessions = new Map();
+const userSessions = new Map();
+const loginStates = new Map();
 
 // 리전별 API 엔드포인트
 const REGIONS = {
@@ -760,6 +766,83 @@ async function getOwnedSkins(discordUserId) {
   }
 }
 
+/**
+ * 로그인 요청을 위한 1회용 보안 State 생성
+ */
+function generateLoginState(discordUserId) {
+  const state = crypto.randomUUID();
+  const expiresAt = Date.now() + 5 * 60 * 1000; // 5분 유효
+  
+  // 5분 후 자동 삭제하는 타이머 등록
+  const timer = setTimeout(() => {
+    loginStates.delete(state);
+  }, 5 * 60 * 1000);
+  
+  loginStates.set(state, {
+    discordUserId,
+    expiresAt,
+    timer
+  });
+  
+  return state;
+}
+
+/**
+ * State 검증 및 소모 (1회용)
+ */
+function validateAndUseState(state) {
+  if (!state || !loginStates.has(state)) {
+    return null;
+  }
+  
+  const data = loginStates.get(state);
+  
+  // 타이머 취소 및 즉시 삭제
+  clearTimeout(data.timer);
+  loginStates.delete(state);
+  
+  if (Date.now() > data.expiresAt) {
+    return null;
+  }
+  
+  return data.discordUserId;
+}
+
+/**
+ * 라이엇 로그인 세션 검증 및 저장
+ */
+async function saveRiotSession(discordUserId, accessToken, idToken) {
+  try {
+    // 토큰 검증 단계: entitlements_token 및 사용자 정보 조회
+    const entitlementsToken = await getEntitlementsToken(accessToken);
+    const userInfo = await getUserInfo(accessToken);
+    
+    const region = await getRegion(accessToken, idToken);
+    const resolvedRegion = region || getShardFromToken(accessToken) || 'kr';
+    const expiresAt = Date.now() + (55 * 60 * 1000); // 55분 유효
+    
+    const sessionData = {
+      puuid: userInfo.puuid,
+      playerName: userInfo.playerName,
+      region: resolvedRegion,
+      expiresAt: expiresAt,
+      accessToken: accessToken,
+      entitlementsToken: entitlementsToken
+    };
+    
+    saveUserSession(discordUserId, sessionData);
+    
+    return {
+      success: true,
+      playerName: userInfo.playerName,
+      region: resolvedRegion
+    };
+  } catch (error) {
+    console.error('라이엇 세션 검증/저장 실패:', error.message);
+    throw new Error('라이엇 인증 토큰 검증에 실패했습니다. 올바른 계정 정보인지 확인해 주세요.');
+  }
+}
+
 export {
   createQRLoginSession,
   pollQRLoginStatus,
@@ -771,5 +854,9 @@ export {
   getWallet,
   getOwnedSkins,
   getClientVersion,
-  validateAndSaveToken
+  validateAndSaveToken,
+  generateLoginState,
+  validateAndUseState,
+  saveRiotSession
 };
+

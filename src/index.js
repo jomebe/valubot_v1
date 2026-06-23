@@ -60,6 +60,18 @@ if (process.env.NODE_ENV !== 'production') {
 
 // Express 서버 설정
 const app = express();
+
+// JSON 바디 파서 및 CORS 설정
+app.use(express.json());
+app.use((req, res, next) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(200);
+  }
+  next();
+});
 const PORT = process.env.PORT || 10000;
 
 // 상태 체크 엔드포인트 추가
@@ -90,6 +102,57 @@ app.get('/status', (req, res) => {
     },
     timestamp: new Date().toISOString()
   });
+});
+
+// Riot OAuth 콜백 API 엔드포인트
+app.post('/api/auth/riot/callback', async (req, res) => {
+  const { accessToken, idToken, state } = req.body;
+
+  if (!state || !accessToken) {
+    return res.status(400).json({
+      success: false,
+      error: '필수 인증 정보(state, accessToken)가 누락되었습니다.'
+    });
+  }
+
+  try {
+    const { validateAndUseState, saveRiotSession } = await import('./services/riotAuth.js');
+    
+    // 1. State 검증 및 Discord User ID 조회
+    const discordUserId = validateAndUseState(state);
+    if (!discordUserId) {
+      return res.status(400).json({
+        success: false,
+        error: '만료되었거나 유효하지 않은 로그인 세션(state)입니다. 다시 /로그인을 시도해주세요.'
+      });
+    }
+
+    // 2. Riot 인증 토큰 검증 및 세션 저장
+    const result = await saveRiotSession(discordUserId, accessToken, idToken);
+    
+    console.log(`[Riot Callback] 성공: Discord ID ${discordUserId} -> Riot 계정 ${result.playerName}`);
+    
+    // 3. 디스코드 채널로 성공 메시지 피드백 전송
+    try {
+      const user = await client.users.fetch(discordUserId).catch(() => null);
+      if (user) {
+        await user.send(`✅ **라이엇 계정 연동 완료!**\n**${result.playerName}** 계정으로 로그인되었습니다. 이제 채널에서 \`/상점\` 또는 \`ㅂ상점\`을 사용하실 수 있습니다.`).catch(() => null);
+      }
+    } catch (msgErr) {
+      // DM 전송 실패 무시
+    }
+
+    return res.json({
+      success: true,
+      playerName: result.playerName
+    });
+  } catch (error) {
+    console.error('[Riot Callback] 오류:', error.message);
+    return res.status(400).json({
+      success: false,
+      error: error.message || '인증 정보 처리 중 오류가 발생했습니다.'
+    });
+  }
 });
 
 // Express 서버를 즉시 시작 (Discord 봇 로그인 전에)
@@ -727,36 +790,6 @@ client.on('interactionCreate', async (interaction) => {
   if (interaction.isButton()) {
     const customId = interaction.customId;
     
-    // 토큰 등록 버튼 클릭 시 모달 열기
-    if (customId.startsWith('login_token_btn_')) {
-      const targetUserId = customId.split('_')[3];
-      if (interaction.user.id !== targetUserId) {
-        return interaction.reply({
-          content: '❌ 본인의 로그인 세션만 등록할 수 있습니다.',
-          ephemeral: true
-        });
-      }
-      
-      const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = await import('discord.js');
-      
-      const modal = new ModalBuilder()
-        .setCustomId(`login_modal_${targetUserId}`)
-        .setTitle('라이엇 로그인 URL 입력');
-        
-      const urlInput = new TextInputBuilder()
-        .setCustomId('redirect_url_input')
-        .setLabel('리다이렉트된 URL 전체를 입력해주세요')
-        .setStyle(TextInputStyle.Paragraph)
-        .setPlaceholder('http://localhost/redirect#access_token=...')
-        .setRequired(true);
-        
-      const row = new ActionRowBuilder().addComponents(urlInput);
-      modal.addComponents(row);
-      
-      await interaction.showModal(modal);
-      return;
-    }
-    
     // 상점 새로고침 버튼
     if (customId.startsWith('store_refresh_')) {
       return handleStoreRefresh(interaction);
@@ -768,39 +801,7 @@ client.on('interactionCreate', async (interaction) => {
     }
   }
 
-  // 모달 제출 처리
-  if (interaction.isModalSubmit()) {
-    const customId = interaction.customId;
-    
-    if (customId.startsWith('login_modal_')) {
-      const targetUserId = customId.split('_')[2];
-      if (interaction.user.id !== targetUserId) {
-        return interaction.reply({
-          content: '❌ 본인만 토큰을 등록할 수 있습니다.',
-          ephemeral: true
-        });
-      }
-      
-      await interaction.deferReply({ ephemeral: true });
-      
-      const redirectUrl = interaction.fields.getTextInputValue('redirect_url_input')?.trim();
-      
-      try {
-        const { validateAndSaveToken } = await import('./services/riotAuth.js');
-        await validateAndSaveToken(targetUserId, redirectUrl);
-        
-        await interaction.editReply({
-          content: '✅ **로그인 완료.** 이제 `/상점` 또는 `ㅂ상점`으로 오늘의 상점을 확인할 수 있어요.'
-        });
-      } catch (error) {
-        console.error('로그인 모달 처리 오류:', error.message);
-        await interaction.editReply({
-          content: `❌ **로그인 실패:** ${error.message || '인증에 실패했습니다.'}`
-        });
-      }
-      return;
-    }
-  }
+
 });
 // Keep-alive 핑 (14분마다 - Render 무료 티어 15분 sleep 방지, 리소스 절약)
 setInterval(async () => {

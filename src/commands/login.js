@@ -4,10 +4,8 @@
  */
 
 import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
-import { getUserSession, logoutUser } from '../services/riotAuth.js';
+import { getUserSession, logoutUser, generateLoginState } from '../services/riotAuth.js';
 
-// 라이엇 클라이언트 로그인 URL (localhost로 리다이렉트되어 토큰 노출)
-const RIOT_LOGIN_URL = 'https://auth.riotgames.com/authorize?client_id=riot-client&redirect_uri=http%3A%2F%2Flocalhost%2Fredirect&response_type=token%20id_token&scope=openid%20link%20ban&nonce=1';
 
 /**
  * 로그인 명령어 처리
@@ -29,31 +27,27 @@ export async function loginCommand(message) {
       return message.reply({ embeds: [embed], ephemeral: isSlash });
     }
 
+    const state = generateLoginState(userId);
+    const loginUrl = `https://auth.riotgames.com/authorize?client_id=riot-client&redirect_uri=https%3A%2F%2Fvalubot.pages.dev%2Fauth%2Fcallback&response_type=token%20id_token&scope=openid%20link%20ban&nonce=1&state=${state}`;
+
     const embed = new EmbedBuilder()
       .setColor(0xFD4554)
       .setTitle('🔑 라이엇 계정 연결')
       .setDescription(
-        '아래 **라이엇 로그인** 버튼을 클릭하여 공식 로그인 페이지로 이동하세요.\n' +
+        '아래 **Riot 계정으로 로그인하기** 버튼을 클릭하여 공식 로그인 페이지로 이동하세요.\n' +
         '(Riot Mobile QR 코드 로그인을 포함한 모든 정상 로그인을 지원합니다)\n\n' +
-        '1. 로그인을 완료하면 주소창이 `http://localhost/redirect#access_token=...` 형태로 리다이렉트됩니다.\n' +
-        '2. 해당 페이지는 접속할 수 없는 빈 페이지로 나오는 것이 정상이니 안심하셔도 됩니다.\n' +
-        '3. 주소창의 **URL 전체**를 복사하세요.\n' +
-        '4. 아래 **토큰 등록하기** 버튼을 누르고 복사한 주소를 입력창에 붙여넣어 주세요.'
+        '로그인이 완료되면 브라우저에서 계정 연동 완료 메시지가 표시됩니다.\n' +
+        '완료 후 디스코드로 돌아와서 `/상점` 또는 `ㅂ상점` 명령어를 사용하실 수 있습니다.'
       )
-      .setFooter({ text: '⚠️ 주의: 복사한 토큰 주소는 절대 타인에게 공유하지 마세요!' })
+      .setFooter({ text: '⚠️ 개인정보 보호를 위해 안전한 Riot 공식 OAuth 창에서 인증이 이루어집니다.' })
       .setTimestamp();
 
     const row = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setStyle(ButtonStyle.Link)
-        .setLabel('라이엇 로그인')
-        .setURL(RIOT_LOGIN_URL)
-        .setEmoji('🔗'),
-      new ButtonBuilder()
-        .setCustomId(`login_token_btn_${userId}`)
-        .setStyle(ButtonStyle.Primary)
-        .setLabel('토큰 등록하기')
-        .setEmoji('📥')
+        .setLabel('Riot 계정으로 로그인하기')
+        .setURL(loginUrl)
+        .setEmoji('🔗')
     );
 
     if (isSlash) {
