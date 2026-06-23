@@ -70,3 +70,5 @@ npm install
 
 ### 2. 백엔드 주소 설정
 - `callback-site/config.js` 파일을 열어 `window.VALUBOT_BACKEND_URL` 값을 봇의 실제 백엔드 외부 API 주소(예: `https://your-bot-backend.render.com`)로 설정하고 저장소에 푸시해야 합니다.
+
+<!-- Trigger redeploy: 2026-06-24T07:44:32 -->
