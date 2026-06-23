@@ -64,7 +64,13 @@ const app = express();
 // JSON 바디 파서 및 CORS 설정
 app.use(express.json());
 app.use((req, res, next) => {
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  const allowedOrigins = ['https://valubot-v1.pages.dev', 'http://localhost:3000', 'http://localhost:5000', 'http://localhost:10000', 'http://localhost:10001'];
+  const origin = req.headers.origin;
+  if (allowedOrigins.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  } else {
+    res.setHeader('Access-Control-Allow-Origin', 'https://valubot-v1.pages.dev');
+  }
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   if (req.method === 'OPTIONS') {

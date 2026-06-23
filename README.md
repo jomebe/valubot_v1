@@ -62,11 +62,16 @@ npm install
 ### 1. Cloudflare Pages 배포 설정
 1. Cloudflare 대시보드에 로그인한 뒤 **Pages** 메뉴로 이동합니다.
 2. 이 깃허브 저장소(Repository)를 연결하여 신규 프로젝트를 생성합니다.
-3. 빌드 및 배포 설정에서 아래와 같이 지정합니다:
-   - **프레임워크 사전 설정**: `없음 (None)`
-   - **빌드 명령**: (비워둠/사용안함)
-   - **출력 디렉터리**: `callback-site`
-4. 프로젝트의 최종 도메인이 `https://valubot.pages.dev`인지 확인하세요. (다른 커스텀 도메인이나 서브도메인을 사용하는 경우, Riot 로그인 링크 생성 주소도 해당 도메인에 맞춰 업데이트해야 합니다)
+3. 빌드 및 배포 설정에서 아래의 두 방법 중 하나로 설정해 주세요:
+   * **방법 A (권장 - 하위 폴더 기준 배포)**:
+     - **루트 디렉터리 (Root directory)**: `callback-site`
+     - **빌드 명령 (Build command)**: `(비워둠/사용안함)`
+     - **출력 디렉터리 (Output directory)**: `.` (또는 `callback-site`로 자동 자동지정)
+   * **방법 B (전체 저장소 기준 배포)**:
+     - **루트 디렉터리 (Root directory)**: `(비워둠)`
+     - **빌드 명령 (Build command)**: `(비워둠/사용안함)`
+     - **출력 디렉터리 (Output directory)**: `callback-site`
+4. 프로젝트의 최종 도메인이 `https://valubot-v1.pages.dev`인지 확인하세요. (다른 커스텀 도메인이나 서브도메인을 사용하는 경우, Riot 로그인 링크 생성 주소도 해당 도메인에 맞춰 업데이트해야 합니다)
 
 ### 2. 백엔드 주소 설정
 - `callback-site/config.js` 파일을 열어 `window.VALUBOT_BACKEND_URL` 값을 봇의 실제 백엔드 외부 API 주소(예: `https://your-bot-backend.render.com`)로 설정하고 저장소에 푸시해야 합니다.

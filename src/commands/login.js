@@ -28,7 +28,7 @@ export async function loginCommand(message) {
     }
 
     const state = generateLoginState(userId);
-    const loginUrl = `https://auth.riotgames.com/authorize?client_id=riot-client&redirect_uri=https%3A%2F%2Fvalubot.pages.dev%2Fauth%2Fcallback&response_type=token%20id_token&scope=openid%20link%20ban&nonce=1&state=${state}`;
+    const loginUrl = `https://auth.riotgames.com/authorize?client_id=riot-client&redirect_uri=https%3A%2F%2Fvalubot-v1.pages.dev%2Fauth%2Fcallback&response_type=token%20id_token&scope=openid%20link%20ban&nonce=1&state=${state}`;
 
     const embed = new EmbedBuilder()
       .setColor(0xFD4554)
