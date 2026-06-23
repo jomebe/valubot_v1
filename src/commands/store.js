@@ -74,7 +74,6 @@ export async function storeCommand(message) {
           inline: false 
         }
       )
-      .setFooter({ text: '⚠️ 이 정보는 개인 학습 목적으로만 사용하세요.' })
       .setTimestamp();
 
     // 스킨별 Embed 생성
