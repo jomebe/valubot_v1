@@ -440,6 +440,7 @@ function extractTokensFromUrl(url) {
 
   const accessTokenMatch = tokenPart.match(/access_token=([^&]+)/);
   const idTokenMatch = tokenPart.match(/id_token=([^&]+)/);
+  const expiresInMatch = tokenPart.match(/expires_in=([^&]+)/);
   
   if (!accessTokenMatch) {
     throw new Error('액세스 토큰을 찾을 수 없습니다.');
@@ -447,7 +448,8 @@ function extractTokensFromUrl(url) {
 
   return {
     accessToken: accessTokenMatch[1],
-    idToken: idTokenMatch ? idTokenMatch[1] : null
+    idToken: idTokenMatch ? idTokenMatch[1] : null,
+    expiresIn: expiresInMatch ? parseInt(expiresInMatch[1], 10) : null
   };
 }
 
@@ -589,7 +591,10 @@ async function validateAndSaveToken(discordUserId, redirectUrl) {
     
     const region = await getRegion(tokens.accessToken, tokens.idToken);
     const resolvedRegion = region || getShardFromToken(tokens.accessToken) || 'kr';
-    const expiresAt = Date.now() + (55 * 60 * 1000); // 55분 유효
+    
+    // expires_in이 존재하면 사용 (초 단위이므로 ms 변환), 없으면 기본 55분 유효
+    const expiresInSec = tokens.expiresIn || 3300; 
+    const expiresAt = Date.now() + (expiresInSec * 1000);
     
     const sessionData = {
       puuid: userInfo.puuid,

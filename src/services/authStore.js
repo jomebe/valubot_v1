@@ -94,8 +94,17 @@ export function getUserSession(discordUserId) {
   const session = sessions[discordUserId];
   if (!session) return null;
   
-  // Check if expired
-  if (Date.now() > session.expiresAt) {
+  // 필수 필드 존재 여부 확인
+  if (!session.puuid || !session.accessToken || !session.entitlementsToken) {
+    console.warn(`[Session Validation] Missing required fields for user ${discordUserId}. Deleting session.`);
+    deleteUserSession(discordUserId);
+    return null;
+  }
+  
+  // 토큰 만료 2분 전 안전 마진 설정
+  const safetyBuffer = 2 * 60 * 1000; // 2분
+  if (Date.now() + safetyBuffer > session.expiresAt) {
+    console.log(`[Session Expiry] Session for user ${discordUserId} is expired or close to expiry (within 2-min buffer). Deleting session.`);
     deleteUserSession(discordUserId);
     return null;
   }
@@ -105,7 +114,8 @@ export function getUserSession(discordUserId) {
   const decryptedEntitlementsToken = decrypt(session.entitlementsToken);
   
   if (!decryptedAccessToken || !decryptedEntitlementsToken) {
-    console.error('Failed to decrypt user session tokens.');
+    console.error(`[Session Decrypt] Failed to decrypt user session tokens for user ${discordUserId}. Deleting session.`);
+    deleteUserSession(discordUserId);
     return null;
   }
   

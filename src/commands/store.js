@@ -9,8 +9,10 @@ import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'disc
 import { 
   getUserSession, 
   getStorefront, 
-  getWallet
+  getWallet,
+  logoutUser
 } from '../services/riotAuth.js';
+import { buildLoginPayload } from './login.js';
 import { 
   formatStorefront, 
   formatRemainingTime, 
@@ -30,13 +32,13 @@ export async function storeCommand(message) {
     const session = getUserSession(userId);
     
     if (!session) {
-      const embed = new EmbedBuilder()
-        .setColor(0xFD4554)
-        .setTitle('🔒 로그인 필요')
-        .setDescription('로그인이 필요해요. /로그인 또는 ㅂ로그인 먼저 해주세요.')
-        .setTimestamp();
-
-      return message.reply({ embeds: [embed], ephemeral: isSlash });
+      const { embeds, components } = buildLoginPayload(userId);
+      embeds[0].setTitle('🔒 로그인 세션 만료');
+      embeds[0].setDescription(
+        '로그인 세션이 만료되었습니다. 다시 로그인해 주세요.\n\n' +
+        embeds[0].data.description
+      );
+      return message.reply({ embeds, components, ephemeral: isSlash });
     }
 
     // 로딩 메시지
@@ -119,18 +121,43 @@ export async function storeCommand(message) {
     console.error('상점 조회 오류:', error);
 
     const errMsg = error.message || '';
-    let description = '상점 정보를 가져오는 중 오류가 발생했습니다.';
-    if (errMsg.includes('만료') || errMsg.includes('로그인') || errMsg.includes('unauthorized') || errMsg.includes('401')) {
-      description = '로그인이 만료됐어요. /로그인으로 다시 연결해주세요.';
+    const isAuthError = errMsg.includes('만료') || errMsg.includes('로그인') || errMsg.includes('unauthorized') || errMsg.includes('401') || errMsg.includes('token') || errMsg.includes('auth');
+
+    if (isAuthError) {
+      logoutUser(userId);
+      const { embeds, components } = buildLoginPayload(userId);
+      embeds[0].setTitle('🔒 로그인 세션 만료');
+      embeds[0].setDescription(
+        '로그인 세션이 만료되었습니다. 다시 로그인해 주세요.\n\n' +
+        embeds[0].data.description
+      );
+
+      if (typeof loadingMsg !== 'undefined') {
+        try {
+          await loadingMsg.edit({ embeds, components });
+          return;
+        } catch (e) {
+          // ignore
+        }
+      }
+      await message.reply({ embeds, components, ephemeral: isSlash });
+    } else {
+      const errorEmbed = new EmbedBuilder()
+        .setColor(0xFF0000)
+        .setTitle('❌ 상점 조회 실패')
+        .setDescription('상점 정보를 가져오는 중 오류가 발생했습니다.')
+        .setTimestamp();
+
+      if (typeof loadingMsg !== 'undefined') {
+        try {
+          await loadingMsg.edit({ embeds: [errorEmbed], components: [] });
+          return;
+        } catch (e) {
+          // ignore
+        }
+      }
+      await message.reply({ embeds: [errorEmbed], ephemeral: isSlash });
     }
-
-    const errorEmbed = new EmbedBuilder()
-      .setColor(0xFF0000)
-      .setTitle('❌ 상점 조회 실패')
-      .setDescription(description)
-      .setTimestamp();
-
-    await message.reply({ embeds: [errorEmbed], ephemeral: isSlash });
   }
 }
 
@@ -153,8 +180,16 @@ export async function handleStoreRefresh(interaction) {
     const session = getUserSession(userId);
     
     if (!session) {
+      logoutUser(userId);
+      const { embeds, components } = buildLoginPayload(userId);
+      embeds[0].setTitle('🔒 로그인 세션 만료');
+      embeds[0].setDescription(
+        '로그인 세션이 만료되었습니다. 다시 로그인해 주세요.\n\n' +
+        embeds[0].data.description
+      );
       return interaction.followUp({ 
-        content: '로그인이 만료됐어요. /로그인으로 다시 연결해주세요.', 
+        embeds, 
+        components,
         ephemeral: true 
       });
     }
@@ -225,14 +260,27 @@ export async function handleStoreRefresh(interaction) {
   } catch (error) {
     console.error('상점 새로고침 오류:', error);
     const errMsg = error.message || '';
-    let description = '상점 정보를 새로고침하는 중 오류가 발생했습니다.';
-    if (errMsg.includes('만료') || errMsg.includes('로그인') || errMsg.includes('unauthorized') || errMsg.includes('401')) {
-      description = '로그인이 만료됐어요. /로그인으로 다시 연결해주세요.';
+    const isAuthError = errMsg.includes('만료') || errMsg.includes('로그인') || errMsg.includes('unauthorized') || errMsg.includes('401') || errMsg.includes('token') || errMsg.includes('auth');
+
+    if (isAuthError) {
+      logoutUser(userId);
+      const { embeds, components } = buildLoginPayload(userId);
+      embeds[0].setTitle('🔒 로그인 세션 만료');
+      embeds[0].setDescription(
+        '로그인 세션이 만료되었습니다. 다시 로그인해 주세요.\n\n' +
+        embeds[0].data.description
+      );
+      await interaction.followUp({ 
+        embeds, 
+        components,
+        ephemeral: true 
+      });
+    } else {
+      await interaction.followUp({ 
+        content: '상점 정보를 새로고침하는 중 오류가 발생했습니다.', 
+        ephemeral: true 
+      });
     }
-    await interaction.followUp({ 
-      content: description, 
-      ephemeral: true 
-    });
   }
 }
 
@@ -253,8 +301,16 @@ export async function handleWalletDetail(interaction) {
     const session = getUserSession(userId);
     
     if (!session) {
+      logoutUser(userId);
+      const { embeds, components } = buildLoginPayload(userId);
+      embeds[0].setTitle('🔒 로그인 세션 만료');
+      embeds[0].setDescription(
+        '로그인 세션이 만료되었습니다. 다시 로그인해 주세요.\n\n' +
+        embeds[0].data.description
+      );
       return interaction.reply({ 
-        content: '세션이 만료되었습니다. 다시 로그인해주세요.', 
+        embeds, 
+        components,
         ephemeral: true 
       });
     }
@@ -277,10 +333,28 @@ export async function handleWalletDetail(interaction) {
 
   } catch (error) {
     console.error('지갑 조회 오류:', error);
-    await interaction.reply({ 
-      content: `오류: ${error.message}`, 
-      ephemeral: true 
-    });
+    const errMsg = error.message || '';
+    const isAuthError = errMsg.includes('만료') || errMsg.includes('로그인') || errMsg.includes('unauthorized') || errMsg.includes('401') || errMsg.includes('token') || errMsg.includes('auth');
+
+    if (isAuthError) {
+      logoutUser(userId);
+      const { embeds, components } = buildLoginPayload(userId);
+      embeds[0].setTitle('🔒 로그인 세션 만료');
+      embeds[0].setDescription(
+        '로그인 세션이 만료되었습니다. 다시 로그인해 주세요.\n\n' +
+        embeds[0].data.description
+      );
+      await interaction.reply({ 
+        embeds, 
+        components,
+        ephemeral: true 
+      });
+    } else {
+      await interaction.reply({ 
+        content: '지갑 정보를 조회하는 중 오류가 발생했습니다.', 
+        ephemeral: true 
+      });
+    }
   }
 }
 
