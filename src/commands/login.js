@@ -13,6 +13,7 @@ import { getUserSession, logoutUser, generateLoginState } from '../services/riot
 export async function loginCommand(message) {
   const userId = message.author.id;
   const isSlash = !!message.interaction;
+  const loginFlow = process.env.LOGIN_FLOW || 'manual';
 
   try {
     // 이미 로그인되어 있는 경우 기존 세션 표시
@@ -27,28 +28,63 @@ export async function loginCommand(message) {
       return message.reply({ embeds: [embed], ephemeral: isSlash });
     }
 
-    const state = generateLoginState(userId);
-    const loginUrl = `https://auth.riotgames.com/authorize?client_id=riot-client&redirect_uri=https%3A%2F%2Fvalubot-v1.pages.dev%2Fauth%2Fcallback&response_type=token%20id_token&scope=openid%20link%20ban&nonce=1&state=${state}`;
+    let embed, row;
 
-    const embed = new EmbedBuilder()
-      .setColor(0xFD4554)
-      .setTitle('🔑 라이엇 계정 연결')
-      .setDescription(
-        '아래 **Riot 계정으로 로그인하기** 버튼을 클릭하여 공식 로그인 페이지로 이동하세요.\n' +
-        '(Riot Mobile QR 코드 로그인을 포함한 모든 정상 로그인을 지원합니다)\n\n' +
-        '로그인이 완료되면 브라우저에서 계정 연동 완료 메시지가 표시됩니다.\n' +
-        '완료 후 디스코드로 돌아와서 `/상점` 또는 `ㅂ상점` 명령어를 사용하실 수 있습니다.'
-      )
-      .setFooter({ text: '⚠️ 개인정보 보호를 위해 안전한 Riot 공식 OAuth 창에서 인증이 이루어집니다.' })
-      .setTimestamp();
+    if (loginFlow === 'rso') {
+      const state = generateLoginState(userId);
+      const loginUrl = `https://auth.riotgames.com/authorize?client_id=riot-client&redirect_uri=https%3A%2F%2Fvalubot-v1.pages.dev%2Fauth%2Fcallback&response_type=token%20id_token&scope=openid%20link%20ban&nonce=1&state=${state}`;
 
-    const row = new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setStyle(ButtonStyle.Link)
-        .setLabel('Riot 계정으로 로그인하기')
-        .setURL(loginUrl)
-        .setEmoji('🔗')
-    );
+      embed = new EmbedBuilder()
+        .setColor(0xFD4554)
+        .setTitle('🔑 라이엇 계정 연결 (RSO)')
+        .setDescription(
+          '아래 **Riot 계정으로 로그인하기** 버튼을 클릭하여 공식 로그인 페이지로 이동하세요.\n' +
+          '(Riot Mobile QR 코드 로그인을 포함한 모든 정상 로그인을 지원합니다)\n\n' +
+          '로그인이 완료되면 브라우저에서 계정 연동 완료 메시지가 표시됩니다.\n' +
+          '완료 후 디스코드로 돌아와서 `/상점` 또는 `ㅂ상점` 명령어를 사용하실 수 있습니다.'
+        )
+        .setFooter({ text: '⚠️ 개인정보 보호를 위해 안전한 Riot 공식 OAuth 창에서 인증이 이루어집니다.' })
+        .setTimestamp();
+
+      row = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setStyle(ButtonStyle.Link)
+          .setLabel('Riot 계정으로 로그인하기')
+          .setURL(loginUrl)
+          .setEmoji('🔗')
+      );
+    } else {
+      // 기본값: manual (기존 로컬호스트 복사 붙여넣기 방식)
+      const manualLoginUrl = 'https://auth.riotgames.com/authorize?client_id=riot-client&redirect_uri=http%3A%2F%2Flocalhost%2Fredirect&response_type=token%20id_token&scope=openid%20link%20ban&nonce=1';
+
+      embed = new EmbedBuilder()
+        .setColor(0xFD4554)
+        .setTitle('🔑 라이엇 계정 연결')
+        .setDescription(
+          '아래 **라이엇 로그인** 버튼을 클릭하여 공식 로그인 페이지로 이동하세요.\n' +
+          '(Riot Mobile QR 코드 로그인을 포함한 모든 정상 로그인을 지원합니다)\n\n' +
+          '1. 로그인을 완료하면 주소창이 `http://localhost/redirect#access_token=...` 형태로 리다이렉트됩니다.\n' +
+          '2. 해당 페이지는 접속할 수 없는 빈 페이지로 나오는 것이 정상이니 안심하셔도 됩니다.\n' +
+          '3. 주소창의 **URL 전체**를 복사하세요.\n' +
+          '4. 아래 **토큰 등록하기** 버튼을 누르고 복사한 주소를 입력창에 붙여넣어 주세요.\n\n' +
+          '⚠️ **Riot 로그인을 완료한 뒤, 마지막에 열린 localhost 주소 전체를 복사해서 아래 버튼/입력창에 붙여넣어 주세요. Riot 비밀번호는 봇에 입력하지 마세요.**'
+        )
+        .setFooter({ text: '⚠️ 주의: 복사한 토큰 주소는 절대 타인에게 공유하지 마세요!' })
+        .setTimestamp();
+
+      row = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setStyle(ButtonStyle.Link)
+          .setLabel('라이엇 로그인')
+          .setURL(manualLoginUrl)
+          .setEmoji('🔗'),
+        new ButtonBuilder()
+          .setCustomId(`login_token_btn_${userId}`)
+          .setStyle(ButtonStyle.Primary)
+          .setLabel('토큰 등록하기')
+          .setEmoji('📥')
+      );
+    }
 
     if (isSlash) {
       // 슬래시 명령어인 경우 에페메럴(비공개)로 응답

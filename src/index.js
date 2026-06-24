@@ -796,6 +796,36 @@ client.on('interactionCreate', async (interaction) => {
   if (interaction.isButton()) {
     const customId = interaction.customId;
     
+    // 토큰 등록 버튼 클릭 시 모달 열기
+    if (customId.startsWith('login_token_btn_')) {
+      const targetUserId = customId.split('_')[3];
+      if (interaction.user.id !== targetUserId) {
+        return interaction.reply({
+          content: '❌ 본인의 로그인 세션만 등록할 수 있습니다.',
+          ephemeral: true
+        });
+      }
+      
+      const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = await import('discord.js');
+      
+      const modal = new ModalBuilder()
+        .setCustomId(`login_modal_${targetUserId}`)
+        .setTitle('라이엇 로그인 URL 입력');
+        
+      const urlInput = new TextInputBuilder()
+        .setCustomId('redirect_url_input')
+        .setLabel('리다이렉트된 URL 전체를 입력해주세요')
+        .setStyle(TextInputStyle.Paragraph)
+        .setPlaceholder('http://localhost/redirect#access_token=...')
+        .setRequired(true);
+        
+      const row = new ActionRowBuilder().addComponents(urlInput);
+      modal.addComponents(row);
+      
+      await interaction.showModal(modal);
+      return;
+    }
+    
     // 상점 새로고침 버튼
     if (customId.startsWith('store_refresh_')) {
       return handleStoreRefresh(interaction);
@@ -807,7 +837,39 @@ client.on('interactionCreate', async (interaction) => {
     }
   }
 
-
+  // 모달 제출 처리
+  if (interaction.isModalSubmit()) {
+    const customId = interaction.customId;
+    
+    if (customId.startsWith('login_modal_')) {
+      const targetUserId = customId.split('_')[2];
+      if (interaction.user.id !== targetUserId) {
+        return interaction.reply({
+          content: '❌ 본인만 토큰을 등록할 수 있습니다.',
+          ephemeral: true
+        });
+      }
+      
+      await interaction.deferReply({ ephemeral: true });
+      
+      const redirectUrl = interaction.fields.getTextInputValue('redirect_url_input')?.trim();
+      
+      try {
+        const { validateAndSaveToken } = await import('./services/riotAuth.js');
+        await validateAndSaveToken(targetUserId, redirectUrl);
+        
+        await interaction.editReply({
+          content: '✅ **로그인 완료.** 이제 `/상점` 또는 `ㅂ상점`으로 오늘의 상점을 확인할 수 있어요.'
+        });
+      } catch (error) {
+        console.error('로그인 모달 처리 오류:', error.message);
+        await interaction.editReply({
+          content: `❌ **로그인 실패:** ${error.message || '인증에 실패했습니다.'}`
+        });
+      }
+      return;
+    }
+  }
 });
 // Keep-alive 핑 (14분마다 - Render 무료 티어 15분 sleep 방지, 리소스 절약)
 setInterval(async () => {
