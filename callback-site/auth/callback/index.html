@@ -4,23 +4,31 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Valubot - 로그인 처리 중</title>
-  <!-- Google Fonts Inter -->
+  
+  <!-- SEO -->
+  <meta name="description" content="Valubot 로그인 인증 콜백 페이지">
+  <link rel="icon" type="image/png" href="/assets/valubot-logo.png">
+  <link rel="apple-touch-icon" href="/assets/valubot-logo.png">
+  
+  <!-- Google Fonts Inter & Noto Sans KR -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+  
   <!-- Load static configuration defining window.VALUBOT_BACKEND_URL -->
   <script src="/config.js"></script>
+  
   <style>
     :root {
-      --bg-color: #0f1923;
-      --card-bg: rgba(23, 34, 45, 0.65);
+      --bg-color: #0b1118;
+      --card-bg: rgba(19, 29, 41, 0.65);
       --primary: #fd4556;
       --success: #00f0aa;
       --warning: #ffb000;
       --text: #ece8e1;
       --text-muted: #94a3b8;
-      --border: rgba(236, 232, 225, 0.1);
-      --border-active: rgba(253, 69, 86, 0.3);
+      --border: rgba(236, 232, 225, 0.08);
+      --border-active: rgba(253, 69, 86, 0.25);
     }
 
     * {
@@ -32,34 +40,93 @@
     body {
       background-color: var(--bg-color);
       color: var(--text);
-      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      font-family: 'Inter', 'Noto Sans KR', system-ui, -apple-system, sans-serif;
       min-height: 100vh;
       display: flex;
-      justify-content: center;
+      flex-direction: column;
       align-items: center;
+      justify-content: space-between;
       position: relative;
       overflow-x: hidden;
     }
 
-    /* Decorative background glowing spots */
+    /* Ambient background glowing spots */
     body::before {
       content: '';
       position: absolute;
-      width: 500px;
-      height: 500px;
-      background: radial-gradient(circle, rgba(253, 69, 86, 0.12) 0%, rgba(15, 25, 35, 0) 70%);
-      top: -5%;
-      right: -5%;
+      width: 600px;
+      height: 600px;
+      background: radial-gradient(circle, rgba(253, 69, 86, 0.05) 0%, rgba(11, 17, 24, 0) 70%);
+      top: -100px;
+      right: -100px;
       z-index: 0;
       pointer-events: none;
     }
 
+    /* Header & Navigation */
+    .navbar {
+      width: 100%;
+      max-width: 1100px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 24px;
+      position: relative;
+      z-index: 10;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+      color: var(--text);
+    }
+
+    .brand img {
+      width: 42px;
+      height: 42px;
+      border-radius: 10px;
+      border: 1.5px solid var(--border);
+    }
+
+    .brand span {
+      font-size: 22px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      background: linear-gradient(135deg, #ffffff 0%, #ece8e1 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .nav-links {
+      display: flex;
+      gap: 20px;
+    }
+
+    .nav-links a {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 14.5px;
+      font-weight: 500;
+      transition: color 0.2s ease;
+    }
+
+    .nav-links a:hover {
+      color: var(--primary);
+    }
+
+    /* Main Container */
     .container {
       position: relative;
       z-index: 1;
       width: 100%;
       max-width: 480px;
-      padding: 20px;
+      padding: 40px 24px 80px 24px;
+      flex-grow: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
     }
 
     .card {
@@ -217,9 +284,65 @@
       box-shadow: 0 6px 20px rgba(88, 101, 242, 0.45);
       background-color: #4752c4;
     }
+
+    /* Footer styles */
+    .footer {
+      width: 100%;
+      text-align: center;
+      padding: 48px 24px;
+      background: #060a0f;
+      border-top: 1px solid var(--border);
+      z-index: 10;
+      position: relative;
+    }
+
+    .footer-links {
+      display: flex;
+      justify-content: center;
+      gap: 24px;
+      margin-bottom: 20px;
+    }
+
+    .footer-links a {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 500;
+      transition: color 0.2s ease;
+    }
+
+    .footer-links a:hover {
+      color: var(--primary);
+    }
+
+    .disclaimer {
+      font-size: 12px;
+      color: rgba(236, 232, 225, 0.25);
+      line-height: 1.7;
+      max-width: 800px;
+      margin: 0 auto 20px auto;
+    }
+
+    .copyright {
+      font-size: 12.5px;
+      color: rgba(236, 232, 225, 0.15);
+    }
   </style>
 </head>
 <body>
+  <!-- Navigation -->
+  <nav class="navbar">
+    <a href="/" class="brand">
+      <img src="/assets/valubot-logo.png" alt="Valubot Logo">
+      <span>Valubot</span>
+    </a>
+    <div class="nav-links">
+      <a href="/terms">이용 약관</a>
+      <a href="/privacy">개인정보 처리방침</a>
+      <a href="/auth/callback">인증 테스트</a>
+    </div>
+  </nav>
+
   <div class="container">
     <div id="card" class="card">
       <!-- Loading view -->
@@ -237,7 +360,7 @@
           </svg>
         </div>
         <h1>로그인 완료!</h1>
-        <p class="desc" id="success-desc">로그인 완료! 디스코드로 돌아가서 /상점 을 입력하세요.<br><span id="player-badge" class="playerName"></span></p>
+        <p class="desc" id="success-desc">로그인 완료! 디스코드로 돌아가서 Valubot 명령어를 사용하세요.<br><span id="player-badge" class="playerName"></span></p>
       </div>
 
       <!-- Placeholder / Setup Required view -->
@@ -272,6 +395,18 @@
       </div>
     </div>
   </div>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="footer-links">
+      <a href="/">홈으로</a>
+      <a href="/terms">이용 약관</a>
+      <a href="/privacy">개인정보 처리방침</a>
+      <a href="/auth/callback">인증 테스트</a>
+    </div>
+    <p class="disclaimer">Valubot은 Riot Games가 제작하거나 보증한 서비스가 아닙니다. Riot Games, VALORANT 및 관련 상표는 Riot Games, Inc.의 자산입니다.</p>
+    <p class="copyright">© 2026 Valubot. All rights reserved.</p>
+  </footer>
 
   <script>
     const viewLoading = document.getElementById('view-loading');

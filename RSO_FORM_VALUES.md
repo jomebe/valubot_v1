@@ -52,6 +52,12 @@ https://valubot-v1.pages.dev/privacy
 https://valubot-v1.pages.dev/terms
 ```
 
+### Discord Bot Invite URL
+```text
+https://discord.com/oauth2/authorize?client_id=1348997551352840203&permissions=8&integration_type=0&scope=bot
+```
+*(Note: Active review testing link requiring Administrator permissions. Least-privilege TODO is documented in README.md).*
+
 ---
 
 ## 4. Product Description / Review Positioning
