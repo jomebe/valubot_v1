@@ -41,34 +41,90 @@ export const valorantApi = {
       // 캐시 정리 (메모리 관리)
       cleanupCache(cache.accounts);
 
-      const response = await axios.get(
-        `https://api.henrikdev.xyz/valorant/v1/account/${encodeURIComponent(name)}/${encodeURIComponent(tag)}`,
-        { 
-          headers: { 
-            'Authorization': process.env.VALORANT_API_KEY 
-          },
-          validateStatus: status => status < 500 // 404도 정상적인 응답으로 처리
+      let data = null;
+      let response;
+      try {
+        response = await axios.get(
+          `https://api.henrikdev.xyz/valorant/v1/account/${encodeURIComponent(name)}/${encodeURIComponent(tag)}`,
+          { 
+            headers: { 
+              'Authorization': process.env.VALORANT_API_KEY 
+            },
+            validateStatus: status => status < 500 // 404도 정상적인 응답으로 처리
+          }
+        );
+
+        if (response.status === 200 && response.data?.data) {
+          data = response.data.data;
+        } else if (response.status === 404) {
+          const errors = response.data?.errors;
+          if (errors && errors.some(e => e.code === 24)) {
+            throw new Error('CODE24');
+          }
+          throw new Error(`플레이어를 찾을 수 없습니다: ${name}#${tag}`);
+        } else if (response.status === 429) {
+          throw new Error('API 요청 한도를 초과했습니다. 잠시 후 다시 시도해주세요.');
+        } else {
+          throw new Error(`API 응답 오류: ${JSON.stringify(response.data)}`);
         }
-      );
-
-      // API 에러 응답 처리
-      if (response.status === 404) {
-        const errors = response.data?.errors;
-        if (errors && errors.some(e => e.code === 24)) {
-          throw new Error('플레이어는 존재하나, 최근 게임 기록이 없어 정보를 가져올 수 없습니다. 게임(데스매치 등 아무 모드나)을 최소 1판 플레이한 후 다시 시도해주세요.');
+      } catch (error) {
+        if (process.env.RIOT_API_KEY && (error.message === 'CODE24' || error.message.includes('찾을 수 없습니다') || error.response?.status === 404)) {
+          console.warn('getAccount Henrik API 실패, 라이엇 공식 API 폴백 시도...');
+          const routings = ['asia', 'americas', 'europe'];
+          let foundPuuid = null;
+          let foundRegion = null;
+          
+          for (const routing of routings) {
+            try {
+              const riotAccountResponse = await axios.get(
+                `https://${routing}.api.riotgames.com/riot/account/v1/accounts/by-riot-id/${encodeURIComponent(name)}/${encodeURIComponent(tag)}`,
+                {
+                  headers: {
+                    'X-Riot-Token': process.env.RIOT_API_KEY
+                  }
+                }
+              );
+              if (riotAccountResponse.data && riotAccountResponse.data.puuid) {
+                foundPuuid = riotAccountResponse.data.puuid;
+                const shardResponse = await axios.get(
+                  `https://${routing}.api.riotgames.com/riot/account/v1/active-shards/by-game/val/by-puuid/${foundPuuid}`,
+                  {
+                    headers: {
+                      'X-Riot-Token': process.env.RIOT_API_KEY
+                    }
+                  }
+                );
+                foundRegion = shardResponse.data.activeShard.toLowerCase();
+                break;
+              }
+            } catch (e) {
+              console.log(`Riot API routing ${routing} failed in getAccount:`, e.response?.status || e.message);
+            }
+          }
+          
+          if (foundPuuid && foundRegion) {
+            data = {
+              puuid: foundPuuid,
+              region: foundRegion,
+              account_level: 0,
+              name: name,
+              tag: tag,
+              card: { id: '', small: '', large: '', wide: '' }
+            };
+          } else {
+            if (error.message === 'CODE24') {
+              throw new Error('플레이어는 존재하나, 최근 게임 기록이 없어 정보를 가져올 수 없습니다. 게임(데스매치 등 아무 모드나)을 최소 1판 플레이한 후 다시 시도해주세요.');
+            }
+            throw error;
+          }
+        } else {
+          if (error.message === 'CODE24') {
+            throw new Error('플레이어는 존재하나, 최근 게임 기록이 없어 정보를 가져올 수 없습니다. 게임(데스매치 등 아무 모드나)을 최소 1판 플레이한 후 다시 시도해주세요.');
+          }
+          throw error;
         }
-        throw new Error(`플레이어를 찾을 수 없습니다: ${name}#${tag}`);
-      }
-      
-      if (response.status === 429) {
-        throw new Error('API 요청 한도를 초과했습니다. 잠시 후 다시 시도해주세요.');
       }
 
-      if (!response.data.data) {
-        throw new Error(`API 응답 오류: ${JSON.stringify(response.data)}`);
-      }
-
-      const data = response.data.data;
       cache.accounts.set(cacheKey, {
         data,
         timestamp: Date.now()
