@@ -58,96 +58,35 @@ export const registerCommand = {
 
       const loadingMsg = await message.reply('🔍 계정을 확인중입니다...');
       
-      // 계정 정보 가져오기 (Henrik API 시도 및 라이엇 공식 API 폴백)
-      let accountData = null;
-      let region = null;
-      let currentTier = 'Unranked';
-
-      try {
-        const accountResponse = await axios.get(
-          `https://api.henrikdev.xyz/valorant/v1/account/${encodeURIComponent(name)}/${encodeURIComponent(tag)}`,
-          {
-            headers: {
-              'Authorization': process.env.VALORANT_API_KEY
-            }
+      // 계정 정보 가져오기
+      const accountResponse = await axios.get(
+        `https://api.henrikdev.xyz/valorant/v1/account/${encodeURIComponent(name)}/${encodeURIComponent(tag)}`,
+        {
+          headers: {
+            'Authorization': process.env.VALORANT_API_KEY
           }
-        );
-
-        if (accountResponse.data.status === 200 && accountResponse.data.data) {
-          accountData = accountResponse.data.data;
-          region = accountData.region.toLowerCase();
-        } else {
-          throw new Error('Account not found on Henrik API');
         }
-      } catch (henrikError) {
-        console.warn('Henrik API 조회 실패, 라이엇 공식 API 폴백 시도:', henrikError.message);
-        
-        if (process.env.RIOT_API_KEY) {
-          const routings = ['asia', 'americas', 'europe'];
-          let foundPuuid = null;
-          let foundRegion = null;
-          
-          for (const routing of routings) {
-            try {
-              const riotAccountResponse = await axios.get(
-                `https://${routing}.api.riotgames.com/riot/account/v1/accounts/by-riot-id/${encodeURIComponent(name)}/${encodeURIComponent(tag)}`,
-                {
-                  headers: {
-                    'X-Riot-Token': process.env.RIOT_API_KEY
-                  }
-                }
-              );
-              if (riotAccountResponse.data && riotAccountResponse.data.puuid) {
-                foundPuuid = riotAccountResponse.data.puuid;
-                
-                const shardResponse = await axios.get(
-                  `https://${routing}.api.riotgames.com/riot/account/v1/active-shards/by-game/val/by-puuid/${foundPuuid}`,
-                  {
-                    headers: {
-                      'X-Riot-Token': process.env.RIOT_API_KEY
-                    }
-                  }
-                );
-                foundRegion = shardResponse.data.activeShard.toLowerCase();
-                break;
-              }
-            } catch (e) {
-              console.log(`Riot API routing ${routing} failed:`, e.response?.status || e.message);
-            }
-          }
-          
-          if (foundPuuid && foundRegion) {
-            accountData = {
-              puuid: foundPuuid,
-              region: foundRegion,
-              account_level: 0,
-              card: { id: '' }
-            };
-            region = foundRegion;
-          } else {
-            throw henrikError;
-          }
-        } else {
-          throw henrikError;
-        }
+      );
+
+      if (accountResponse.data.status !== 200) {
+        throw new Error('Account not found');
       }
 
-      // MMR 정보 가져오기 (실패 시 Unranked 기본값 설정 및 진행)
-      try {
-        const mmrResponse = await axios.get(
-          `https://api.henrikdev.xyz/valorant/v2/mmr/${region}/${encodeURIComponent(name)}/${encodeURIComponent(tag)}`,
-          {
-            headers: {
-              'Authorization': process.env.VALORANT_API_KEY
-            }
+      const accountData = accountResponse.data.data;
+      const region = accountData.region.toLowerCase();
+
+      // MMR 정보 가져오기
+      const mmrResponse = await axios.get(
+        `https://api.henrikdev.xyz/valorant/v2/mmr/${region}/${encodeURIComponent(name)}/${encodeURIComponent(tag)}`,
+        {
+          headers: {
+            'Authorization': process.env.VALORANT_API_KEY
           }
-        );
-        if (mmrResponse.data?.data?.current_data?.currenttierpatched) {
-          currentTier = mmrResponse.data.data.current_data.currenttierpatched.split(' ')[0];
         }
-      } catch (mmrError) {
-        console.warn('MMR 정보 가져오기 실패 (Unranked 기본값 사용):', mmrError.message);
-      }
+      );
+
+      const mmrData = mmrResponse.data.data;
+      const currentTier = mmrData.current_data.currenttierpatched.split(' ')[0];
 
       // 현재 서버의 계정 데이터 가져오기
       let guildData = {};
