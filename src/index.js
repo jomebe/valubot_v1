@@ -547,9 +547,8 @@ client.on('error', (error) => {
 client.on('messageCreate', async (message) => {
   if (message.author.bot) return;
   
-  const content = message.content.toLowerCase();
-  const args = content.split(' ');
-  const commandName = args[0];
+  const args = message.content.split(' ');
+  const commandName = args[0].toLowerCase();
   
   // 명령어 실행
   const command = commands.get(commandName);
