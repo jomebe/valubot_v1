@@ -53,6 +53,10 @@ export const valorantApi = {
 
       // API 에러 응답 처리
       if (response.status === 404) {
+        const errors = response.data?.errors;
+        if (errors && errors.some(e => e.code === 24)) {
+          throw new Error('플레이어는 존재하나, 최근 게임 기록이 없어 정보를 가져올 수 없습니다. 게임(데스매치 등 아무 모드나)을 최소 1판 플레이한 후 다시 시도해주세요.');
+        }
         throw new Error(`플레이어를 찾을 수 없습니다: ${name}#${tag}`);
       }
       

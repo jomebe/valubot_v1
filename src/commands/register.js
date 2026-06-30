@@ -145,6 +145,13 @@ export const registerCommand = {
     } catch (error) {
       console.error('Valorant API 오류:', error.response?.data || error);
       
+      const apiErrors = error.response?.data?.errors;
+      const hasCode24 = apiErrors && apiErrors.some(e => e.code === 24);
+      
+      if (hasCode24) {
+        return message.reply('❌ 플레이어는 존재하나, 최근 게임 기록이 없어 정보를 가져올 수 없습니다. 게임(데스매치 등 아무 모드나)을 최소 1판 플레이한 후 다시 등록해주세요.');
+      }
+      
       if (error.response?.status === 404 || error.message === 'Account not found') {
         return message.reply('❌ 플레이어를 찾을 수 없습니다. 닉네임과 태그를 확인해주세요.');
       } else if (error.response?.status === 429) {
