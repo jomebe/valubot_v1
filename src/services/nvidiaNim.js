@@ -2,13 +2,14 @@ import axios from 'axios';
 import { createHash } from 'crypto';
 
 const DEFAULT_NIM_CHAT_COMPLETIONS_URL = 'https://integrate.api.nvidia.com/v1/chat/completions';
-const DEFAULT_NIM_MODEL = 'nvidia/nvidia-nemotron-nano-9b-v2';
+const DEFAULT_NIM_MODEL = 'mistralai/mistral-nemotron';
 const RETIRED_NIM_MODELS = new Set([
   'deepseek-ai/deepseek-v4-pro',
   'deepseek-ai/deepseek-v4-pro-0813',
   'deepseek-ai/deepseek-v4-flash',
   'deepseek-ai/deepseek-v4.1-flash',
   'z-ai/glm-5.3-flash',
+  'nvidia/nvidia-nemotron-nano-9b-v2',
 ]);
 
 function getNimChatCompletionsUrl() {
@@ -277,8 +278,8 @@ async function requestChatCompletion(apiKey, model, prompt, maxTokens = 900) {
           content: prompt,
         },
       ],
-      temperature: 0.5,
-      top_p: 1,
+      temperature: 0.6,
+      top_p: 0.7,
       max_tokens: maxTokens,
       stream: false,
 
