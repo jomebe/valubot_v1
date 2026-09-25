@@ -1,8 +1,25 @@
 import axios from 'axios';
 import { createHash } from 'crypto';
 
-const NIM_CHAT_COMPLETIONS_URL = process.env.NVIDIA_NIM_API_URL || 'https://integrate.api.nvidia.com/v1/chat/completions';
-const DEFAULT_NIM_MODEL = process.env.NVIDIA_NIM_MODEL || 'deepseek-ai/deepseek-v4-pro';
+const DEFAULT_NIM_CHAT_COMPLETIONS_URL = 'https://integrate.api.nvidia.com/v1/chat/completions';
+const DEFAULT_NIM_MODEL = 'deepseek-ai/deepseek-v4.1-flash';
+const RETIRED_NIM_MODELS = new Set([
+  'deepseek-ai/deepseek-v4-pro',
+  'deepseek-ai/deepseek-v4-pro-0813',
+  'deepseek-ai/deepseek-v4-flash',
+]);
+
+function getNimChatCompletionsUrl() {
+  return process.env.NVIDIA_NIM_API_URL?.trim() || DEFAULT_NIM_CHAT_COMPLETIONS_URL;
+}
+
+function getNimModel() {
+  const configuredModel = process.env.NVIDIA_NIM_MODEL?.trim();
+  if (!configuredModel || RETIRED_NIM_MODELS.has(configuredModel)) {
+    return DEFAULT_NIM_MODEL;
+  }
+  return configuredModel;
+}
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 const MAX_SAFE_REQUESTS_PER_MINUTE = 36;
 const DEFAULT_MAX_CONCURRENT_REQUESTS = 2;
@@ -208,7 +225,7 @@ function blockApiKey(apiKey, index, status) {
 
 function createCacheKey(prompt, maxTokens) {
   return createHash('sha256')
-    .update(`${DEFAULT_NIM_MODEL}\n${maxTokens}\n${prompt}`)
+    .update(`${getNimModel()}\n${maxTokens}\n${prompt}`)
     .digest('hex');
 }
 
@@ -279,7 +296,7 @@ async function readStreamingResponse(stream, fallbackModel) {
 
 async function requestChatCompletion(apiKey, model, prompt, maxTokens = 900) {
   const response = await axios.post(
-    NIM_CHAT_COMPLETIONS_URL,
+    getNimChatCompletionsUrl(),
     {
       model,
       messages: [
@@ -328,7 +345,7 @@ async function performSingleNimRequest(prompt, maxTokens, cacheKey) {
   activeRequestCount += 1;
 
   try {
-    const response = await requestChatCompletion(apiKey, DEFAULT_NIM_MODEL, prompt, maxTokens);
+    const response = await requestChatCompletion(apiKey, getNimModel(), prompt, maxTokens);
     cacheResponse(cacheKey, response);
     return response;
   } catch (error) {
