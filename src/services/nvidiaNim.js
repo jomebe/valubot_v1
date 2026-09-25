@@ -258,42 +258,6 @@ function cacheResponse(cacheKey, response) {
   });
 }
 
-async function readStreamingResponse(stream, fallbackModel) {
-  let buffer = '';
-  let content = '';
-  let responseModel = fallbackModel;
-
-  for await (const chunk of stream) {
-    buffer += chunk.toString('utf8');
-    const lines = buffer.split(/\r?\n/);
-    buffer = lines.pop() || '';
-
-    for (const line of lines) {
-      if (!line.startsWith('data:')) {
-        continue;
-      }
-
-      const data = line.slice(5).trim();
-      if (!data || data === '[DONE]') {
-        continue;
-      }
-
-      try {
-        const event = JSON.parse(data);
-        responseModel = event.model || responseModel;
-        content += event.choices?.[0]?.delta?.content || '';
-      } catch {
-        console.warn('NVIDIA NIM 스트림 이벤트 파싱 실패');
-      }
-    }
-  }
-
-  return {
-    content: sanitizeModelContent(content),
-    model: responseModel,
-  };
-}
-
 async function requestChatCompletion(apiKey, model, prompt, maxTokens = 900) {
   const response = await axios.post(
     getNimChatCompletionsUrl(),
@@ -302,17 +266,17 @@ async function requestChatCompletion(apiKey, model, prompt, maxTokens = 900) {
       messages: [
         {
           role: 'system',
-          content: '당신은 발로란트 전적을 읽고 실전적인 피드백을 주는 코치입니다.',
+          content: '당신은 발로란트 전적을 읽고 실전적인 피드백을 주는 코치입니다. 최종 답변만 출력하세요.',
         },
         {
           role: 'user',
           content: prompt,
         },
       ],
-      temperature: 0.35,
-      top_p: 0.9,
+      temperature: 1,
+      top_p: 0.95,
       max_tokens: maxTokens,
-      stream: true,
+      stream: false,
     },
     {
       headers: {
@@ -320,19 +284,24 @@ async function requestChatCompletion(apiKey, model, prompt, maxTokens = 900) {
         Accept: 'application/json',
         'Content-Type': 'application/json',
       },
-      responseType: 'stream',
       timeout: getRequestTimeoutMs(),
     }
   );
 
-  const result = await readStreamingResponse(response.data, model);
-  if (!result.content) {
+  const content = sanitizeModelContent(
+    response.data?.choices?.[0]?.message?.content || ''
+  );
+
+  if (!content) {
     const error = new Error('NVIDIA_NIM_EMPTY_RESPONSE');
     error.code = 'NVIDIA_NIM_EMPTY_RESPONSE';
     throw error;
   }
 
-  return result;
+  return {
+    content,
+    model: response.data?.model || model,
+  };
 }
 
 async function performSingleNimRequest(prompt, maxTokens, cacheKey) {
