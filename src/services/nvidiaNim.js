@@ -268,7 +268,9 @@ async function requestChatCompletion(apiKey, model, prompt, maxTokens = 900) {
       messages: [
         {
           role: 'system',
-          content: model === 'nvidia/nvidia-nemotron-nano-9b-v2'\n            ? '/no_think\\n당신은 발로란트 전적을 읽고 실전적인 피드백을 주는 코치입니다. 한국어 최종 답변만 출력하세요.'\n            : '당신은 발로란트 전적을 읽고 실전적인 피드백을 주는 코치입니다. 최종 답변만 출력하세요.',
+          content: model === 'nvidia/nvidia-nemotron-nano-9b-v2'
+            ? '/no_think\\n당신은 발로란트 전적을 읽고 실전적인 피드백을 주는 코치입니다. 한국어 최종 답변만 출력하세요.'
+            : '당신은 발로란트 전적을 읽고 실전적인 피드백을 주는 코치입니다. 최종 답변만 출력하세요.',
         },
         {
           role: 'user',
