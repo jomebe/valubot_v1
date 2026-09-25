@@ -2,12 +2,13 @@ import axios from 'axios';
 import { createHash } from 'crypto';
 
 const DEFAULT_NIM_CHAT_COMPLETIONS_URL = 'https://integrate.api.nvidia.com/v1/chat/completions';
-const DEFAULT_NIM_MODEL = 'z-ai/glm-5.3-flash';
+const DEFAULT_NIM_MODEL = 'nvidia/nvidia-nemotron-nano-9b-v2';
 const RETIRED_NIM_MODELS = new Set([
   'deepseek-ai/deepseek-v4-pro',
   'deepseek-ai/deepseek-v4-pro-0813',
   'deepseek-ai/deepseek-v4-flash',
   'deepseek-ai/deepseek-v4.1-flash',
+  'z-ai/glm-5.3-flash',
 ]);
 
 function getNimChatCompletionsUrl() {
@@ -267,7 +268,7 @@ async function requestChatCompletion(apiKey, model, prompt, maxTokens = 900) {
       messages: [
         {
           role: 'system',
-          content: '당신은 발로란트 전적을 읽고 실전적인 피드백을 주는 코치입니다. 최종 답변만 출력하세요.',
+          content: model === 'nvidia/nvidia-nemotron-nano-9b-v2'\n            ? '/no_think\\n당신은 발로란트 전적을 읽고 실전적인 피드백을 주는 코치입니다. 한국어 최종 답변만 출력하세요.'\n            : '당신은 발로란트 전적을 읽고 실전적인 피드백을 주는 코치입니다. 최종 답변만 출력하세요.',
         },
         {
           role: 'user',
@@ -278,12 +279,7 @@ async function requestChatCompletion(apiKey, model, prompt, maxTokens = 900) {
       top_p: 1,
       max_tokens: maxTokens,
       stream: false,
-      ...(model === 'z-ai/glm-5.3-flash'
-        ? {
-            reasoning_effort: 'low',
-            chat_template_kwargs: { clear_thinking: true },
-          }
-        : {}),
+
     },
     {
       headers: {
