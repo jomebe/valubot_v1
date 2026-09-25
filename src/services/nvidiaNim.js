@@ -2,7 +2,7 @@ import axios from 'axios';
 import { createHash } from 'crypto';
 
 const DEFAULT_NIM_CHAT_COMPLETIONS_URL = 'https://integrate.api.nvidia.com/v1/chat/completions';
-const DEFAULT_NIM_MODEL = 'mistralai/mistral-nemotron';
+const DEFAULT_NIM_MODEL = 'nvidia/nemotron-3-super-120b-a12b';
 const RETIRED_NIM_MODELS = new Set([
   'deepseek-ai/deepseek-v4-pro',
   'deepseek-ai/deepseek-v4-pro-0813',
@@ -269,9 +269,7 @@ async function requestChatCompletion(apiKey, model, prompt, maxTokens = 900) {
       messages: [
         {
           role: 'system',
-          content: model === 'nvidia/nvidia-nemotron-nano-9b-v2'
-            ? '/no_think\\n당신은 발로란트 전적을 읽고 실전적인 피드백을 주는 코치입니다. 한국어 최종 답변만 출력하세요.'
-            : '당신은 발로란트 전적을 읽고 실전적인 피드백을 주는 코치입니다. 최종 답변만 출력하세요.',
+          content: '당신은 발로란트 전적을 읽고 실전적인 피드백을 주는 코치입니다. 한국어 최종 답변만 출력하세요.',
         },
         {
           role: 'user',
@@ -282,7 +280,9 @@ async function requestChatCompletion(apiKey, model, prompt, maxTokens = 900) {
       top_p: 0.7,
       max_tokens: maxTokens,
       stream: false,
-
+      ...(model === 'nvidia/nemotron-3-super-120b-a12b'
+        ? { chat_template_kwargs: { enable_thinking: false } }
+        : {}),
     },
     {
       headers: {
