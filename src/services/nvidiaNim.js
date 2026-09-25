@@ -398,3 +398,21 @@ export async function generateValorantAiReview(analysisData, context = {}) {
 export async function generateValorantFocusedReview(analysisData, context = {}) {
   return generateNimReview(createFocusedPrompt(analysisData), 600, context);
 }
+
+if (process.argv.includes('--self-test')) {
+  const startedAt = Date.now();
+  try {
+    const result = await generateValorantAiReview({
+      player: { riotId: 'smoke#KR1' },
+      sample: { games: 3, wins: 2, losses: 1, winRate: 66.7 },
+      performance: { kd: 1.2, kda: 1.6, adr: 145, acs: 215, headshotRate: 24 },
+      agents: [],
+      maps: [],
+      recentMatches: [],
+    });
+    console.log('NIM_SELF_TEST_OK', Date.now() - startedAt, result.model, result.content.length);
+  } catch (error) {
+    console.error('NIM_SELF_TEST_FAIL', Date.now() - startedAt, error.code || error.message);
+    process.exitCode = 1;
+  }
+}
