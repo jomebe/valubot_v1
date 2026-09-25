@@ -278,6 +278,12 @@ async function requestChatCompletion(apiKey, model, prompt, maxTokens = 900) {
       top_p: 1,
       max_tokens: maxTokens,
       stream: false,
+      ...(model === 'z-ai/glm-5.3-flash'
+        ? {
+            reasoning_effort: 'low',
+            chat_template_kwargs: { clear_thinking: true },
+          }
+        : {}),
     },
     {
       headers: {
@@ -387,9 +393,9 @@ async function generateNimReview(prompt, maxTokens, context) {
 }
 
 export async function generateValorantAiReview(analysisData, context = {}) {
-  return generateNimReview(createPrompt(analysisData), 900, context);
+  return generateNimReview(createPrompt(analysisData), 420, context);
 }
 
 export async function generateValorantFocusedReview(analysisData, context = {}) {
-  return generateNimReview(createFocusedPrompt(analysisData), 1200, context);
+  return generateNimReview(createFocusedPrompt(analysisData), 600, context);
 }
